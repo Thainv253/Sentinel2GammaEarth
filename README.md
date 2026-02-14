@@ -88,39 +88,168 @@ python scripts/gee_authenticate.py
 
 #### Phương án B: PC Windows với Docker (Khuyến nghị)
 
-**Yêu cầu:**
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) + WSL2 backend
-- GPU NVIDIA (tùy chọn — không bắt buộc, có thể chạy CPU)
+> 💡 **Không cần cài Python hay GDAL trên Windows** — Docker đã bao gồm tất cả.
 
-**Cài đặt Docker Desktop:**
-1. Tải [Docker Desktop](https://www.docker.com/products/docker-desktop/) → cài đặt
-2. Bật WSL2 backend trong Settings
-3. Nếu có GPU: cài [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+---
 
-**Cấu hình CPU/GPU trong `.env`:**
-```env
-# Chạy bằng CPU (mặc định, chậm hơn, ~10-30 phút)
-DEVICE=cpu
+##### Bước B1: Bật WSL2 (Windows Subsystem for Linux)
 
-# Chạy bằng GPU NVIDIA (nhanh, ~1-2 phút)
-DEVICE=gpu
+Mở **PowerShell (Run as Administrator)** và chạy:
+
+```powershell
+# Cài WSL2 (chỉ chạy 1 lần, restart nếu yêu cầu)
+wsl --install
+
+# Kiểm tra WSL2 đã hoạt động
+wsl --status
 ```
 
-**Chạy pipeline:**
-```batch
-REM Chạy CPU mode
+> Nếu máy chưa bật **Virtualization** trong BIOS, cần vào BIOS và bật **Intel VT-x** hoặc **AMD-V**.
+
+##### Bước B2: Cài Docker Desktop
+
+1. Tải [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) (bản **Stable**)
+2. Chạy installer → Next → Install
+3. Khi cài xong, **mở Docker Desktop**
+4. Vào **Settings** (⚙️) → **General**:
+   - ✅ Tích **"Use the WSL 2 based engine"**
+5. Vào **Resources** → **WSL Integration**:
+   - ✅ Tích **"Enable integration with my default WSL distro"**
+6. Click **Apply & Restart**
+
+**Kiểm tra Docker đã hoạt động:**
+```cmd
+docker --version
+docker compose version
+```
+
+Kết quả mong đợi:
+```
+Docker version 27.x.x
+Docker Compose version v2.x.x
+```
+
+##### Bước B3: Cài NVIDIA Container Toolkit (Chỉ khi có GPU NVIDIA)
+
+> ⚠️ **Bước này TÙY CHỌN** — nếu không có GPU NVIDIA, bỏ qua và chạy ở CPU mode.
+
+1. Cài [NVIDIA Driver mới nhất](https://www.nvidia.com/download/index.aspx) cho GPU
+2. Kiểm tra driver:
+   ```cmd
+   nvidia-smi
+   ```
+   Kết quả hiển thị tên GPU, CUDA version là thành công.
+
+3. Trong **WSL2 Ubuntu terminal**, cài NVIDIA Container Toolkit:
+   ```bash
+   # Thêm repository
+   distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+     && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+     && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+       sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+       sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+   # Cài đặt
+   sudo apt-get update
+   sudo apt-get install -y nvidia-container-toolkit
+
+   # Cấu hình Docker
+   sudo nvidia-ctk runtime configure --runtime=docker
+   ```
+
+4. **Restart Docker Desktop**
+
+##### Bước B4: Clone project và cấu hình
+
+```cmd
+REM Clone project
+git clone https://github.com/Thainv253/Sentinel2GammaEarth.git
+cd Sentinel2GammaEarth
+
+REM Copy file cấu hình mẫu
+copy .env.example .env
+
+REM Mở .env bằng Notepad để chỉnh sửa
+notepad .env
+```
+
+Sửa `.env`:
+```env
+# Google Cloud Project ID (bắt buộc)
+GCP_PROJECT_ID=your-project-id-here
+
+# Chế độ tính toán
+DEVICE=cpu          # Không có GPU → dùng cpu
+# DEVICE=gpu        # Có GPU NVIDIA → đổi thành gpu
+```
+
+##### Bước B5: Chạy pipeline
+
+```cmd
+REM ========== Chạy toàn bộ pipeline (CPU mode) ==========
 docker-run.bat cpu
 
-REM Chạy GPU mode
+REM ========== Hoặc chạy từng bước: ==========
+
+REM Bước 1: Xác thực Earth Engine
+docker-run.bat cpu auth
+
+REM Bước 2: Tìm ảnh cloud-free
+docker-run.bat cpu search
+
+REM Bước 3: Export bands GeoTIFF
+docker-run.bat cpu export
+
+REM Bước 4: S2DR3 super resolution (10m → 1m)
+docker-run.bat cpu s2dr3
+
+REM Bước 5: Visualize kết quả
+docker-run.bat cpu visualize
+```
+
+**Nếu có GPU NVIDIA:**
+```cmd
+REM Chạy toàn bộ pipeline với GPU (nhanh hơn ~10x)
 docker-run.bat gpu
 
-REM Chỉ chạy 1 bước cụ thể
-docker-run.bat cpu search
+REM Hoặc chỉ bước S2DR3 với GPU
 docker-run.bat gpu s2dr3
-
-REM Mở shell vào container
-docker-run.bat cpu shell
 ```
+
+##### Bước B6: Kiểm tra kết quả
+
+```cmd
+REM Mở thư mục output
+explorer output
+
+REM Danh sách file kết quả
+dir output\*.tif
+dir output\*.png
+```
+
+##### Mở shell vào Docker container (debug):
+
+```cmd
+REM Mở bash shell trong container
+docker-run.bat cpu shell
+
+REM Trong container, có thể chạy lệnh Python trực tiếp:
+python scripts/s2dr3_process.py --device cpu
+python config/settings.py
+```
+
+##### Xử lý lỗi thường gặp:
+
+| Lỗi | Nguyên nhân | Cách khắc phục |
+|-----|-------------|----------------|
+| `docker: command not found` | Docker chưa cài | Cài Docker Desktop (Bước B2) |
+| `Cannot connect to Docker daemon` | Docker chưa khởi động | Mở Docker Desktop, đợi icon xanh |
+| `no matching manifest for windows/amd64` | WSL2 chưa bật | Chạy `wsl --install` (Bước B1) |
+| `nvidia-container-cli: initialization error` | Driver GPU cũ | Update NVIDIA Driver |
+| `CUDA out of memory` | Thiếu VRAM | Đổi `DEVICE=cpu` trong `.env` |
+| `GEE authentication failed` | Chưa xác thực | Chạy `docker-run.bat cpu auth` |
+
+---
 
 #### Phương án C: Google Colab (Miễn phí GPU)
 
