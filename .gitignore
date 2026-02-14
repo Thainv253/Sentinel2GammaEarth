@@ -1,0 +1,40 @@
+# Environment
+.env
+*.env.local
+
+# Credentials (NEVER commit)
+credentials/
+*.json
+!package.json
+
+# Data & Output
+data/
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual env
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
