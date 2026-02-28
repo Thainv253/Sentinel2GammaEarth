@@ -1,38 +1,72 @@
 # =============================================
 # Sentinel-2 Super Resolution — Docker Compose
 # =============================================
-# Hỗ trợ 2 profiles: gpu (mặc định) và cpu
-#
-# Chạy GPU:
-#   docker compose --profile gpu up --build
-#   docker compose --profile gpu run --rm sentinel2-gpu python run_pipeline.py
-#
-# Chạy CPU:
+# 🛰️ Chạy Web UI:
 #   docker compose --profile cpu up --build
+#   → http://localhost:5050
+#
+# 🚀 Chạy Pipeline CLI:
 #   docker compose --profile cpu run --rm sentinel2-cpu python run_pipeline.py
 #
-# Hoặc đơn giản, dùng script:
-#   ./docker-run.sh gpu
-#   ./docker-run.sh cpu
+# 🐚 Mở shell:
+#   docker compose --profile cpu run --rm sentinel2-cpu bash
+#
+# GPU (cần NVIDIA Container Toolkit):
+#   docker compose --profile gpu up --build
 # =============================================
 
 x-common: &common
   build:
     context: .
     dockerfile: Dockerfile
+  platform: linux/amd64
   volumes:
+    # Mount source code (hot reload — không cần rebuild khi sửa code)
+    - ./app.py:/app/app.py:ro
+    - ./run_pipeline.py:/app/run_pipeline.py:ro
+    - ./scripts:/app/scripts:ro
+    - ./config:/app/config:ro
+    - ./templates:/app/templates:ro
+    - ./static:/app/static:ro
+    # Mount data & output (persist giữa các lần chạy)
     - ./data:/app/data
     - ./output:/app/output
+    # Mount GEE credentials từ host (đã auth sẵn)
+    - ~/.config/earthengine:/root/.config/earthengine:ro
+    # Mount Service Account key (nếu có)
     - ./credentials:/app/credentials:ro
+    # Mount .env
     - ./.env:/app/.env:ro
   env_file:
     - .env
+  environment:
+    - WEB_PORT=5050
+    - WEB_HOST=0.0.0.0
+    - RUNTIME_ENV=docker
+  ports:
+    - "5050:5050"
   stdin_open: true
   tty: true
   working_dir: /app
 
 services:
-  # ── GPU MODE (NVIDIA CUDA) ──
+  # ── CPU MODE (Ubuntu thuần — mặc định cho macOS) ──
+  sentinel2-cpu:
+    <<: *common
+    container_name: sentinel2-cpu
+    profiles: [ "cpu" ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: ubuntu:24.04
+    environment:
+      - DEVICE=cpu
+      - WEB_PORT=5050
+      - WEB_HOST=0.0.0.0
+      - RUNTIME_ENV=docker
+
+  # ── GPU MODE (NVIDIA CUDA — cần NVIDIA Container Toolkit) ──
   sentinel2-gpu:
     <<: *common
     container_name: sentinel2-gpu
@@ -44,6 +78,9 @@ services:
         BASE_IMAGE: nvidia/cuda:12.4.1-runtime-ubuntu22.04
     environment:
       - DEVICE=gpu
+      - WEB_PORT=5050
+      - WEB_HOST=0.0.0.0
+      - RUNTIME_ENV=docker
     deploy:
       resources:
         reservations:
@@ -51,16 +88,3 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [ gpu ]
-
-  # ── CPU MODE (Ubuntu thuần) ──
-  sentinel2-cpu:
-    <<: *common
-    container_name: sentinel2-cpu
-    profiles: [ "cpu" ]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        BASE_IMAGE: ubuntu:22.04
-    environment:
-      - DEVICE=cpu

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🛰️ Sentinel-2 Super Resolution</title>
+  <meta name="description" content="Nâng cấp ảnh vệ tinh Sentinel-2 lên 1m/px với S2DR3">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🛰️</span>
+        <div>
+          <h1>Sentinel-2 Super Resolution</h1>
+          <span class="subtitle">S2DR3 — Gamma Earth | Deep Learning 10m → 1m/px</span>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-env" id="badge-env">{{ config.runtime_env }}</span>
+        <span class="badge badge-device" id="badge-device">{{ config.device }}</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-grid">
+    <!-- ===== Left Panel: Input Form ===== -->
+    <section class="panel panel-input">
+      <div class="panel-header">
+        <h2>📋 Cấu hình</h2>
+      </div>
+      <form id="config-form" class="form-grid">
+        <!-- Location -->
+        <div class="form-group">
+          <label>📍 Vĩ độ (Latitude)</label>
+          <input type="number" id="latitude" step="0.000001" value="{{ config.latitude }}" placeholder="10.762622">
+        </div>
+        <div class="form-group">
+          <label>📍 Kinh độ (Longitude)</label>
+          <input type="number" id="longitude" step="0.000001" value="{{ config.longitude }}" placeholder="106.660172">
+        </div>
+
+        <!-- Date Range -->
+        <div class="form-group">
+          <label>📅 Ngày bắt đầu</label>
+          <input type="date" id="start-date" value="{{ config.start_date }}">
+        </div>
+        <div class="form-group">
+          <label>📅 Ngày kết thúc</label>
+          <input type="date" id="end-date" value="{{ config.end_date }}">
+        </div>
+
+        <!-- Cloud & Buffer -->
+        <div class="form-group">
+          <label>☁️ Tỷ lệ mây tối đa (%)</label>
+          <div class="range-group">
+            <input type="range" id="cloud-threshold" min="0" max="100" value="{{ config.cloud_threshold }}">
+            <span class="range-value" id="cloud-value">{{ config.cloud_threshold }}%</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>📐 Buffer (mét)</label>
+          <input type="number" id="buffer-meters" min="100" max="50000" step="100" value="{{ config.buffer_meters }}">
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions full-width">
+          <button type="button" class="btn btn-primary" id="btn-search" onclick="doSearch()">
+            <span class="btn-icon">🔍</span> Tìm ảnh
+          </button>
+          <div class="btn-tooltip-wrap">
+            <button type="button" class="btn btn-secondary" id="btn-export" onclick="doExport()" disabled>
+              <span class="btn-icon">📥</span> Export GeoTIFF
+            </button>
+            <div class="tooltip">Tải ảnh vệ tinh Sentinel-2 gốc (10 bands) về máy dưới dạng GeoTIFF.<br>Dữ liệu 10m/px
+              gồm: B2, B3, B4, B5, B6, B7, B8, B8A, B11, B12.</div>
+          </div>
+          <div class="btn-tooltip-wrap">
+            <button type="button" class="btn btn-accent" id="btn-process" onclick="doProcess()" disabled>
+              <span class="btn-icon">🚀</span> S2DR3 Super Resolution
+            </button>
+            <div class="tooltip">Nâng độ phân giải từ 10m lên 1m/px bằng AI Deep Learning (S2DR3).<br>
+              ⏱️ Thời gian: ~5-15 phút trên CPU.</div>
+          </div>
+          <div class="btn-tooltip-wrap">
+            <a href="/compare" target="_blank" class="btn btn-outline" id="btn-compare">
+              <span class="btn-icon">🔍</span> So sánh (Split View)
+            </a>
+            <div class="tooltip">Mở trang so sánh trực quan giữa ảnh gốc 10m và ảnh super-resolution 1m.<br>Hỗ trợ: RGB,
+              NDVI, Infrared, False Color.</div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== Center Panel: Results Gallery ===== -->
+    <section class="panel panel-gallery">
+      <div class="panel-header">
+        <h2>🖼️ Kết quả</h2>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="refreshResults()">🔄 Refresh</button>
+          <button class="btn btn-sm" onclick="clearAllResults()" style="color:#f66;">🗑️ Xoá</button>
+        </div>
+      </div>
+
+      <!-- Mode Tabs -->
+      <div class="mode-tabs" id="mode-tabs">
+        <button class="mode-tab active" data-mode="all" onclick="filterMode('all')">Tất cả</button>
+        <button class="mode-tab" data-mode="rgb" onclick="filterMode('rgb')">🌈 RGB</button>
+        <button class="mode-tab" data-mode="ndvi" onclick="filterMode('ndvi')">🌿 NDVI</button>
+        <button class="mode-tab" data-mode="infrared" onclick="filterMode('infrared')">🔴 Infrared</button>
+        <button class="mode-tab" data-mode="super_resolution" onclick="filterMode('super_resolution')">✨ 1m SR</button>
+        <button class="mode-tab" data-mode="other" onclick="filterMode('other')">📁 Khác</button>
+      </div>
+
+      <!-- Gallery Grid -->
+      <div class="gallery-grid" id="gallery-grid">
+        <div class="gallery-empty">
+          <span>📂</span>
+          <p>Chưa có ảnh kết quả</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Right Panel: Progress & Search Results ===== -->
+    <section class="panel panel-progress">
+      <!-- Progress Bar -->
+      <div class="progress-section" id="progress-section" style="display:none;">
+        <div class="panel-header">
+          <h2>⏳ Tiến trình</h2>
+          <span class="status-dot" id="status-dot"></span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+        <p class="progress-message" id="progress-message"></p>
+        <div class="log-container" id="log-container"></div>
+      </div>
+
+      <!-- Search Results -->
+      <div class="search-results" id="search-results" style="display:none;">
+        <div class="panel-header">
+          <h2>🔍 Kết quả tìm kiếm</h2>
+          <span class="result-count" id="result-count"></span>
+        </div>
+        <div class="result-list" id="result-list"></div>
+      </div>
+
+      <!-- Welcome -->
+      <div class="welcome" id="welcome-section">
+        <div class="welcome-icon">🛰️</div>
+        <h3>Sentinel-2 Deep Resolution</h3>
+        <p>Nhập tọa độ và ngày tháng, sau đó nhấn <strong>"Tìm ảnh"</strong> để bắt đầu.</p>
+        <div class="info-cards">
+          <div class="info-card">
+            <span class="info-num">10</span>
+            <span class="info-label">Bands xử lý</span>
+          </div>
+          <div class="info-card">
+            <span class="info-num">1m</span>
+            <span class="info-label">Resolution</span>
+          </div>
+          <div class="info-card">
+            <span class="info-num">AI</span>
+            <span class="info-label">Deep Learning</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Image Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <img id="modal-img" src="" alt="">
+      <div class="modal-info" id="modal-info"></div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──
+    let selectedImageId = null;
+    let selectedDate = null;
+    let currentFiles = [];
+    let eventSource = null;
+    let currentDevice = '{{ config.device }}' || 'cpu';
+
+    // ── Helpers ──
+    function getFormData() {
+      return {
+        latitude: document.getElementById('latitude').value,
+        longitude: document.getElementById('longitude').value,
+        start_date: document.getElementById('start-date').value,
+        end_date: document.getElementById('end-date').value,
+        cloud_threshold: document.getElementById('cloud-threshold').value,
+        buffer_meters: document.getElementById('buffer-meters').value,
+      };
+    }
+
+    function setEnv(btn) {
+      btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('badge-env').textContent = btn.dataset.value;
+    }
+
+    function setDevice(btn) {
+      btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDevice = btn.dataset.value;
+      document.getElementById('badge-device').textContent = btn.dataset.value.toUpperCase();
+    }
+
+    // Cloud threshold slider
+    document.getElementById('cloud-threshold').addEventListener('input', (e) => {
+      document.getElementById('cloud-value').textContent = e.target.value + '%';
+    });
+
+    // ── Progress ──
+    function showProgress(msg) {
+      document.getElementById('welcome-section').style.display = 'none';
+      document.getElementById('progress-section').style.display = 'block';
+      document.getElementById('progress-message').textContent = msg;
+    }
+
+    function updateProgress(data) {
+      const bar = document.getElementById('progress-bar');
+      const msg = document.getElementById('progress-message');
+      const dot = document.getElementById('status-dot');
+
+      bar.style.width = data.progress + '%';
+      msg.textContent = data.message;
+
+      dot.className = 'status-dot status-' + data.status;
+
+      // Logs
+      const logEl = document.getElementById('log-container');
+      logEl.innerHTML = (data.logs || []).map(l =>
+        `<div class="log-line"><span class="log-time">${l.time}</span> ${l.msg}</div>`
+      ).join('');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function startPolling() {
+      if (eventSource) eventSource.close();
+      eventSource = new EventSource('/api/progress-stream');
+      eventSource.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        updateProgress(data);
+        if (data.status === 'done' || data.status === 'error' || data.status === 'idle') {
+          eventSource.close();
+          if (data.status === 'done') refreshResults();
+        }
+      };
+    }
+
+    // ── Search ──
+    async function doSearch() {
+      const btn = document.getElementById('btn-search');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Đang tìm...';
+      showProgress('🔍 Đang tìm ảnh Sentinel-2...');
+
+      // Reset tất cả kết quả cũ
+      selectedImageId = null;
+      selectedDate = null;
+      currentFiles = [];
+      renderGallery([]);
+      document.getElementById('search-results').style.display = 'none';
+      document.getElementById('result-list').innerHTML = '';
+      document.getElementById('btn-export').disabled = true;
+      document.getElementById('btn-process').disabled = true;
+
+      try {
+        const res = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getFormData()),
+        });
+        const data = await res.json();
+
+        if (data.success && data.results.length > 0) {
+          showSearchResults(data.results);
+          document.getElementById('btn-export').disabled = false;
+          updateProgress({ progress: 100, message: `✅ Tìm thấy ${data.count} ảnh`, status: 'idle', logs: [] });
+        } else {
+          updateProgress({ progress: 100, message: data.error || '⚠️ Không tìm thấy ảnh', status: 'error', logs: [] });
+        }
+      } catch (e) {
+        updateProgress({ progress: 100, message: '❌ Lỗi: ' + e.message, status: 'error', logs: [] });
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">🔍</span> Tìm ảnh';
+    }
+
+    function showSearchResults(results) {
+      const el = document.getElementById('search-results');
+      const list = document.getElementById('result-list');
+      const count = document.getElementById('result-count');
+
+      el.style.display = 'block';
+      count.textContent = results.length + ' ảnh';
+
+      list.innerHTML = results.map((r, i) => {
+        const thumbUrl = `/api/thumbnail?image_id=${encodeURIComponent(r.image_id)}`;
+        return `
+        <div class="result-card ${i === 0 ? 'selected' : ''}" onclick="selectImage('${r.image_id}', '${r.date}', this)">
+          <div class="result-card-inner">
+            <div class="result-thumb">
+              <img src="${thumbUrl}" alt="Preview" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\'thumb-placeholder\'>🛰️</span>'">
+            </div>
+            <div class="result-body">
+              <div class="result-header">
+                <span class="result-index">#${r.index}</span>
+                <span class="result-cloud ${r.cloud_percentage < 5 ? 'cloud-low' : ''}">${r.cloud_percentage < 5 ? '☀️' : '⛅'} ${r.cloud_percentage}%</span>
+              </div>
+              <div class="result-date">${r.date}</div>
+              <div class="result-meta">
+                <span>🗺️ ${r.mgrs_tile}</span>
+                <span>🛰️ ${r.spacecraft}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      }).join('');
+
+      // Auto-select first
+      if (results.length > 0) {
+        selectedImageId = results[0].image_id;
+        selectedDate = results[0].date.split(' ')[0];
+      }
+    }
+
+    function selectImage(imageId, date, el) {
+      selectedImageId = imageId;
+      selectedDate = date.split(' ')[0];
+      document.querySelectorAll('.result-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      document.getElementById('btn-export').disabled = false;
+      document.getElementById('btn-process').disabled = false;
+    }
+
+    // ── Export ──
+    async function doExport() {
+      const btn = document.getElementById('btn-export');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Đang export...';
+      showProgress('📥 Đang export bands GeoTIFF...');
+
+      const formData = getFormData();
+      formData.image_id = selectedImageId;
+
+      startPolling();
+
+      try {
+        await fetch('/api/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+      } catch (e) {
+        updateProgress({ progress: 100, message: '❌ ' + e.message, status: 'error', logs: [] });
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">📥</span> Export GeoTIFF';
+      document.getElementById('btn-process').disabled = false;
+    }
+
+    // ── Process S2DR3 ──
+    async function doProcess() {
+      const btn = document.getElementById('btn-process');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Đang xử lý...';
+      showProgress('🚀 Đang chạy S2DR3 Super Resolution...');
+
+      const formData = getFormData();
+      formData.date = selectedDate;
+      formData.device = currentDevice;
+
+      startPolling();
+
+      try {
+        await fetch('/api/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+      } catch (e) {
+        updateProgress({ progress: 100, message: '❌ ' + e.message, status: 'error', logs: [] });
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">🚀</span> S2DR3 Super Resolution';
+    }
+
+    // ── Results Gallery ──
+    async function refreshResults() {
+      try {
+        const res = await fetch('/api/results');
+        const data = await res.json();
+        currentFiles = data.files || [];
+        renderGallery(currentFiles);
+        // Reset active tab về "Tất cả"
+        document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.mode-tab[data-mode="all"]').classList.add('active');
+      } catch (e) { console.error(e); }
+    }
+
+    let clearPending = false;
+    async function clearAllResults() {
+      const btn = event.target.closest('button');
+      if (!clearPending) {
+        // Lần 1: đổi text xác nhận
+        clearPending = true;
+        btn.innerHTML = '⚠️ Xác nhận xoá?';
+        btn.style.background = '#c33';
+        btn.style.color = '#fff';
+        setTimeout(() => {
+          clearPending = false;
+          btn.innerHTML = '🗑️ Xoá';
+          btn.style.background = '';
+          btn.style.color = '#f66';
+        }, 3000);
+        return;
+      }
+      // Lần 2: xoá thật
+      clearPending = false;
+      btn.innerHTML = '⏳ Đang xoá...';
+      try {
+        await fetch('/api/clear-results', { method: 'POST' });
+        currentFiles = [];
+        renderGallery([]);
+        selectedImageId = null;
+        selectedDate = null;
+        document.getElementById('search-results').style.display = 'none';
+        document.getElementById('btn-export').disabled = true;
+        document.getElementById('btn-process').disabled = true;
+        btn.innerHTML = '✅ Đã xoá';
+        setTimeout(() => { btn.innerHTML = '🗑️ Xoá'; btn.style.background = ''; btn.style.color = '#f66'; }, 1500);
+      } catch (e) {
+        console.error(e);
+        btn.innerHTML = '🗑️ Xoá';
+        btn.style.background = '';
+        btn.style.color = '#f66';
+      }
+    }
+
+    function renderGallery(files) {
+      const grid = document.getElementById('gallery-grid');
+      if (!files.length) {
+        grid.innerHTML = '<div class="gallery-empty"><span>📂</span><p>Chưa có ảnh kết quả</p></div>';
+        return;
+      }
+
+      grid.innerHTML = files.map(f => `
+        <div class="gallery-card" data-mode="${f.mode}" onclick="openModal('${f.path}', '${f.name}', '${f.mode}', ${f.size_mb})">
+          ${f.ext === '.png' || f.ext === '.jpg' || f.ext === '.jpeg'
+          ? `<img class="gallery-thumb" src="${f.path}" alt="${f.name}" loading="lazy">`
+          : `<div class="gallery-thumb gallery-tif"><span>🗺️</span><small>GeoTIFF</small></div>`
+        }
+          <div class="gallery-info">
+            <span class="gallery-name" title="${f.name}">${f.name}</span>
+            <div class="gallery-meta">
+              <span class="mode-badge mode-${f.mode}">${getModeLabel(f.mode)}</span>
+              <span>${f.size_mb} MB</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterMode(mode) {
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.mode-tab[data-mode="${mode}"]`).classList.add('active');
+
+      const filtered = mode === 'all' ? currentFiles : currentFiles.filter(f => f.mode === mode);
+      renderGallery(filtered);
+    }
+
+    function getModeLabel(mode) {
+      const labels = {
+        rgb: '🌈 RGB', ndvi: '🌿 NDVI', infrared: '🔴 IR', false_color: '🎨 False',
+        super_resolution: '✨ 1m', original_10m: '📷 10m', original_20m: '📷 20m', other: '📁'
+      };
+      return labels[mode] || mode;
+    }
+
+    // ── Modal ──
+    function openModal(path, name, mode, sizeMb) {
+      document.getElementById('modal-overlay').classList.add('open');
+      document.getElementById('modal-img').src = path;
+      document.getElementById('modal-info').innerHTML = `
+        <strong>${name}</strong><br>
+        Mode: ${getModeLabel(mode)} | Size: ${sizeMb} MB
+        <br><a href="${path}" download class="btn btn-sm" style="margin-top:8px">⬇️ Download</a>
+      `;
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open');
+    }
+
+    // ESC to close
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    // Initial load
+    refreshResults();
+  </script>
+</body>
+
+</html>

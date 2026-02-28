@@ -92,6 +92,9 @@ def check_environment(device: str = "cpu"):
             "s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl"
         )
 
+    # Kiểm tra S2DR3 runtime dependencies
+    _check_and_install_deps()
+
     # In warnings
     if warnings:
         print()
@@ -109,6 +112,41 @@ def check_environment(device: str = "cpu"):
     return len(issues) == 0
 
 
+def _check_and_install_deps():
+    """Kiểm tra và tự động cài đặt S2DR3 runtime dependencies nếu thiếu."""
+    missing = []
+
+    deps_map = {
+        "skimage": "scikit-image",
+        "sklearn": "scikit-learn",
+        "PIL": "Pillow",
+        "cv2": "opencv-python-headless",
+        "osgeo": "GDAL",
+    }
+
+    for module_name, pip_name in deps_map.items():
+        try:
+            __import__(module_name)
+        except ImportError:
+            missing.append((module_name, pip_name))
+
+    if missing:
+        print(f"\n  ⚠️  Thiếu {len(missing)} S2DR3 dependencies, đang tự cài đặt...")
+        import subprocess
+        for module_name, pip_name in missing:
+            print(f"     📦 Cài đặt {pip_name} (cho {module_name})...")
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "-q", pip_name],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
+                print(f"     ✅ {pip_name} đã cài")
+            except subprocess.CalledProcessError as e:
+                print(f"     ❌ Không cài được {pip_name}: {e}")
+        print()
+
+
 def _set_device(device: str):
     """Cấu hình PyTorch device trước khi chạy S2DR3."""
     try:
@@ -118,13 +156,58 @@ def _set_device(device: str):
             torch.set_default_device("cuda")
             print(f"  🔥 Device: CUDA (GPU)")
         else:
-            # Force CPU mode
             os.environ["CUDA_VISIBLE_DEVICES"] = ""
             print(f"  🧊 Device: CPU")
 
             if device == "gpu":
                 print(f"     ⚠️  GPU không khả dụng, fallback về CPU")
     except ImportError:
+        pass
+
+
+def _simulate_colab_env():
+    """Simulate Google Colab environment — S2DR3 chỉ chạy trên Colab.
+
+    S2DR3 binary kiểm tra Colab env và từ chối chạy nếu không phải.
+    Function này fake Colab modules + env vars để bypass restriction.
+
+    QUAN TRỌNG: Không ghi đè google namespace package vì google.auth
+    cần tồn tại cho gspread (dependency của s2dr3.datautils).
+    """
+    import types
+
+    # 1. Set Colab env vars
+    os.environ.setdefault("COLAB_RELEASE_TAG", "v2.0")
+    os.environ.setdefault("COLAB_GPU", "0")
+
+    # 2. Thêm google.colab vào google namespace (KHÔNG replace google module)
+    if "google.colab" not in sys.modules:
+        # Import google package thật (namespace package cho google-auth etc.)
+        try:
+            import google
+        except ImportError:
+            google = types.ModuleType("google")
+            google.__path__ = []
+            sys.modules["google"] = google
+
+        # Tạo fake colab sub-modules
+        colab_mod = types.ModuleType("google.colab")
+        auth_mod = types.ModuleType("google.colab.auth")
+        auth_mod.authenticate_user = lambda: None
+        drive_mod = types.ModuleType("google.colab.drive")
+        drive_mod.mount = lambda *a, **k: None
+
+        # Gắn vào google namespace mà KHÔNG ghi đè
+        sys.modules["google.colab"] = colab_mod
+        sys.modules["google.colab.auth"] = auth_mod
+        sys.modules["google.colab.drive"] = drive_mod
+        google.colab = colab_mod
+
+    # 3. Tạo thư mục log cần thiết cho S2DR3
+    log_dir = Path("/var/log/journal")
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
         pass
 
 
@@ -194,54 +277,65 @@ def process_with_s2dr3(
     # ── Cấu hình device ──
     _set_device(device)
 
+    # ── Simulate Colab environment (S2DR3 yêu cầu Colab) ──
+    _simulate_colab_env()
+
     # ── Chạy S2DR3 ──
     try:
-        import s2dr3
+        from s2dr3 import inferutils
 
         print(f"🚀 Bắt đầu S2DR3 inference...")
         print(f"   Tọa độ:  {lat}, {lon}")
         print(f"   Output:  {out_dir}")
         print()
 
-        if date:
-            # Chế độ online: S2DR3 tự fetch dữ liệu
-            print(f"   📡 Chế độ: Online (fetch từ GEE)")
-            print(f"   Ngày:    {date}")
-            print()
+        if not date:
+            print(f"   ❌ S2DR3 yêu cầu tham số date (ngày chụp).")
+            print(f"   💡 Chạy: python scripts/gee_search_imagery.py để tìm ngày phù hợp")
+            print(f"   Rồi: python scripts/s2dr3_process.py --date YYYY-MM-DD")
+            return None
 
-            result = s2dr3.process(
-                lat=lat,
-                lon=lon,
-                date=date,
-                output_dir=str(out_dir),
+        print(f"   📡 Chế độ: Online (S2DR3 tự fetch từ GEE)")
+        print(f"   Ngày:    {date}")
+        print(f"   lonlat:  ({lon}, {lat})")
+        print()
+
+        # S2DR3 output files vào thư mục hiện tại → chdir
+        original_cwd = os.getcwd()
+        os.chdir(str(out_dir))
+
+        # ── Memory optimizations cho CPU inference ──
+        import gc
+        gc.collect()
+
+        # Giảm PyTorch memory footprint
+        os.environ.setdefault("OMP_NUM_THREADS", "2")
+        os.environ.setdefault("MKL_NUM_THREADS", "2")
+        os.environ.setdefault("PYTORCH_NO_CUDA_MEMORY_CACHING", "1")
+
+        try:
+            import torch
+            torch.set_num_threads(2)
+            torch.set_num_interop_threads(1)
+        except Exception:
+            pass
+
+        try:
+            # API: s2dr3.inferutils.test(xy, date, simulate=False, savepath=None)
+            # xy = (lon, lat), date = "YYYY-MM-DD"
+            result = inferutils.test(
+                (lon, lat),
+                date,
+                savepath=str(out_dir),
             )
-        else:
-            # Chế độ offline: xử lý file đã tải
-            print(f"   📁 Chế độ: Offline (từ file local)")
-            print(f"   Input:   {in_dir}")
-
-            # Tìm file GeoTIFF trong input dir
-            tif_files = list(in_dir.glob("sentinel2_*.tif"))
-            if not tif_files:
-                print(f"   ❌ Không tìm thấy file GeoTIFF trong {in_dir}")
-                print(f"   💡 Chạy: python scripts/gee_export_bands.py trước")
-                return None
-
-            print(f"   Files:   {len(tif_files)}")
-            for f in tif_files:
-                print(f"            - {f.name}")
-            print()
-
-            result = s2dr3.process(
-                input_dir=str(in_dir),
-                output_dir=str(out_dir),
-            )
+        finally:
+            os.chdir(original_cwd)
 
         print(f"\n✅ S2DR3 inference hoàn tất!")
         print(f"   Output: {out_dir}")
 
         # Liệt kê files output
-        output_files = list(out_dir.glob("*.tif"))
+        output_files = list(out_dir.glob("*.tif")) + list(out_dir.glob("*.png"))
         if output_files:
             print(f"\n📁 Files output:")
             for f in output_files:
@@ -250,34 +344,72 @@ def process_with_s2dr3(
 
         print(f"\n💡 Tiếp theo:")
         print(f"   python scripts/visualize_results.py")
+        print(f"   hoặc mở http://localhost:5000 (web UI)")
 
         return result
+
+    except ImportError as e:
+        # Xử lý lỗi missing module cụ thể
+        module_name = str(e).replace("No module named '", "").replace("'", "")
+        print(f"\n❌ Lỗi S2DR3: Thiếu module '{module_name}'")
+        print(f"\n💡 Sửa lỗi:")
+
+        # Map module → pip package
+        fix_map = {
+            "skimage": "scikit-image",
+            "sklearn": "scikit-learn",
+            "PIL": "Pillow",
+            "cv2": "opencv-python-headless",
+            "osgeo": "GDAL",
+            "torch": "torch",
+        }
+        pip_pkg = fix_map.get(module_name, module_name)
+        print(f"   pip install {pip_pkg}")
+        print(f"\n   Hoặc rebuild Docker image:")
+        print(f"   docker compose build --no-cache")
+
+        # Thử auto-install
+        print(f"\n🔄 Đang thử tự cài đặt {pip_pkg}...")
+        import subprocess
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "-q", pip_pkg],
+                stdout=subprocess.DEVNULL,
+            )
+            print(f"✅ Đã cài {pip_pkg}. Vui lòng chạy lại.")
+        except Exception:
+            print(f"❌ Không thể tự cài. Thêm '{pip_pkg}' vào requirements.txt rồi rebuild Docker.")
+
+        return None
 
     except Exception as e:
         print(f"\n❌ Lỗi S2DR3: {e}")
         print(f"\n💡 Kiểm tra:")
         if device == "gpu":
-            print(f"   1. GPU NVIDIA hoạt động: nvidia-smi")
-            print(f"   2. CUDA version phù hợp")
-            print(f"   3. Đủ VRAM (tối thiểu 4GB)")
+            print(f"   - GPU NVIDIA hoạt động: nvidia-smi")
+            print(f"   - CUDA version phù hợp")
+            print(f"   - Đủ VRAM (tối thiểu 4GB)")
         else:
-            print(f"   1. Đủ RAM (tối thiểu 8GB)")
-            print(f"   2. Input files tồn tại trong {in_dir}")
-        print(f"   3. Thử: DEVICE=cpu python scripts/s2dr3_process.py")
+            print(f"   - Đủ RAM (tối thiểu 8GB)")
+            print(f"   - Input files tồn tại trong {in_dir}")
+        print(f"   - Thử: DEVICE=cpu python scripts/s2dr3_process.py")
         return None
 
 
 def _generate_colab_instructions(lat: float, lon: float, date: str | None, out_dir: Path):
     """Tạo file hướng dẫn cho Google Colab fallback."""
+    code_snippet = (
+        f"import s2dr3.inferutils\n"
+        f"s2dr3.inferutils.test(lonlat=({lon}, {lat}), date='{date or 'YYYY-MM-DD'}')"
+    )
     instructions = {
         "colab_url": "https://colab.research.google.com/",
         "steps": [
             "1. Mở Google Colab → Runtime → Change runtime type → T4 GPU",
-            f"2. Cài đặt: !pip install s2dr3",
-            f"3. Import: import s2dr3",
-            f"4. Chạy: s2dr3.process(lat={lat}, lon={lon}" +
-            (f", date='{date}'" if date else "") + ")",
-            "5. Download kết quả về thư mục output/",
+            "2. Cài đặt: !pip -q install https://storage.googleapis.com/0x7ff601307fa5/s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl",
+            "3. Chạy code:",
+            code_snippet,
+            "4. Download kết quả (*.tif, *.png)",
         ],
         "lat": lat,
         "lon": lon,

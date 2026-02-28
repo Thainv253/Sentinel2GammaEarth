@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛰️ So sánh — Sentinel-2 Super Resolution</title>
+    <meta name="description" content="So sánh trực quan ảnh Sentinel-2 gốc 10m và super-resolution 1m">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        /* ── Reset & Dark Theme ── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0e1a;
+            --bg-glass: rgba(15, 20, 35, 0.85);
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --accent: #3b82f6;
+            --radius: 10px;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Header ── */
+        .compare-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: var(--bg-glass);
+            border-bottom: 1px solid rgba(99, 130, 190, 0.15);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+        }
+
+        .compare-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .compare-header h1 a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .compare-header h1 a:hover {
+            color: var(--accent);
+        }
+
+        /* ── Mode tabs ── */
+        .compare-modes {
+            display: flex;
+            gap: 4px;
+        }
+
+        .compare-mode {
+            padding: 6px 14px;
+            border: 1px solid rgba(99, 130, 190, 0.2);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-dim);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .compare-mode:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .compare-mode.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* ── Map container ── */
+        .compare-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #compare-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── Labels ── */
+        .map-label {
+            position: absolute;
+            top: 16px;
+            padding: 8px 16px;
+            background: var(--bg-glass);
+            border: 1px solid rgba(99, 130, 190, 0.2);
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            z-index: 800;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+        }
+
+        .label-left {
+            left: 16px;
+        }
+
+        .label-right {
+            right: 16px;
+        }
+
+        .label-left::before {
+            content: '◀ ';
+            opacity: 0.5;
+        }
+
+        .label-right::after {
+            content: ' ▶';
+            opacity: 0.5;
+        }
+
+        /* ── Info panel ── */
+        .compare-info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 20px;
+            background: var(--bg-glass);
+            border: 1px solid rgba(99, 130, 190, 0.2);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-dim);
+            z-index: 800;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* ── Leaflet side-by-side override ── */
+        .leaflet-sbs-divider {
+            background: linear-gradient(180deg, var(--accent), #06b6d4) !important;
+            width: 3px !important;
+        }
+
+        .leaflet-sbs-range {
+            opacity: 0 !important;
+            height: 100% !important;
+        }
+
+        /* ── No data message ── */
+        .no-data {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 16px;
+            color: var(--text-dim);
+        }
+
+        .no-data span {
+            font-size: 48px;
+        }
+
+        .no-data p {
+            max-width: 400px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .no-data a {
+            color: var(--accent);
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+        }
+
+        .no-data a:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="compare-header">
+        <h1>
+            🛰️ So sánh Super Resolution
+            <a href="/">← Quay lại Dashboard</a>
+        </h1>
+        <div class="compare-modes" id="compare-modes">
+            <button class="compare-mode active" data-mode="rgb" onclick="switchMode('rgb')">🌈 RGB</button>
+            <button class="compare-mode" data-mode="ndvi" onclick="switchMode('ndvi')">🌿 NDVI</button>
+            <button class="compare-mode" data-mode="infrared" onclick="switchMode('infrared')">🔴 Infrared</button>
+            <button class="compare-mode" data-mode="false_color" onclick="switchMode('false_color')">🎨 False
+                Color</button>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div class="compare-container" id="compare-container">
+        <div id="compare-map"></div>
+
+        <!-- Labels -->
+        <div class="map-label label-left" id="label-left">Gốc 10m</div>
+        <div class="map-label label-right" id="label-right">Super Res 1m</div>
+
+        <!-- Info -->
+        <div class="compare-info" id="compare-info">
+            Kéo thanh trượt để so sánh | Scroll để zoom
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Side-by-Side plugin -->
+    <script src="https://unpkg.com/leaflet-side-by-side@2.2.0/index.js"></script>
+
+    <script>
+        /**
+         * ── Cấu hình ảnh ──
+         *
+         * Mỗi mode (rgb, ndvi, infrared, false_color) có 2 ảnh:
+         *   - left: ảnh gốc 10m (từ output/ sau khi render)
+         *   - right: ảnh super-resolution 1m (sau S2DR3, nếu có)
+         *
+         * Nếu chưa có ảnh SR, bên phải sẽ hiển thị ảnh gốc với label khác.
+         */
+        const IMAGE_CONFIG = {
+            rgb: {
+                left: '/output/rgb_tci.png',
+                right: '/output/sr_rgb_tci.png',
+                labelLeft: '🌈 RGB Gốc (10m)',
+                labelRight: '🌈 RGB Super-Res (1m)',
+            },
+            ndvi: {
+                left: '/output/ndvi.png',
+                right: '/output/sr_ndvi.png',
+                labelLeft: '🌿 NDVI Gốc (10m)',
+                labelRight: '🌿 NDVI Super-Res (1m)',
+            },
+            infrared: {
+                left: '/output/infrared_irp.png',
+                right: '/output/sr_infrared_irp.png',
+                labelLeft: '🔴 Infrared Gốc (10m)',
+                labelRight: '🔴 Infrared Super-Res (1m)',
+            },
+            false_color: {
+                left: '/output/false_color.png',
+                right: '/output/sr_false_color.png',
+                labelLeft: '🎨 False Color Gốc (10m)',
+                labelRight: '🎨 False Color Super-Res (1m)',
+            },
+        };
+
+        // ── State ──
+        let map = null;
+        let leftLayer = null;
+        let rightLayer = null;
+        let sideBySide = null;
+        let currentMode = 'rgb';
+
+        // ── Metadata (từ server truyền qua query params hoặc defaults) ──
+        const params = new URLSearchParams(window.location.search);
+        const lat = parseFloat(params.get('lat')) || parseFloat('{{ config.latitude }}');
+        const lon = parseFloat(params.get('lon')) || parseFloat('{{ config.longitude }}');
+
+        /**
+         * Khởi tạo Leaflet map với dark tile layer.
+         */
+        function initMap() {
+            map = L.map('compare-map', {
+                center: [lat, lon],
+                zoom: 14,
+                zoomControl: true,
+            });
+
+            // Base layer (dark tiles) — fallback nếu ảnh chưa load
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OSM | © CARTO',
+                maxZoom: 19,
+            }).addTo(map);
+
+            // Load mode mặc định
+            loadImages(currentMode);
+        }
+
+        /**
+         * Load ảnh overlay cho chế độ so sánh.
+         *
+         * Sử dụng L.imageOverlay để hiển thị PNG lên bản đồ.
+         * Bounds được tính từ metadata (nếu có) hoặc ước lượng từ tọa độ + buffer.
+         */
+        async function loadImages(mode) {
+            const config = IMAGE_CONFIG[mode];
+            if (!config) return;
+
+            // Cập nhật labels
+            document.getElementById('label-left').textContent = config.labelLeft;
+            document.getElementById('label-right').textContent = config.labelRight;
+
+            // Xóa layers cũ
+            if (sideBySide) { sideBySide.remove(); sideBySide = null; }
+            if (leftLayer) { map.removeLayer(leftLayer); leftLayer = null; }
+            if (rightLayer) { map.removeLayer(rightLayer); rightLayer = null; }
+
+            // Lấy bounds từ metadata
+            let bounds;
+            try {
+                const res = await fetch('/api/image-bounds');
+                const data = await res.json();
+                if (data.bounds) {
+                    bounds = L.latLngBounds(
+                        [data.bounds.south, data.bounds.west],
+                        [data.bounds.north, data.bounds.east]
+                    );
+                }
+            } catch (e) {
+                console.warn('Không lấy được bounds, dùng mặc định');
+            }
+
+            // Fallback: ước lượng bounds từ tọa độ + buffer ~5km
+            if (!bounds) {
+                const delta = 0.045; // ~5km
+                bounds = L.latLngBounds([lat - delta, lon - delta], [lat + delta, lon + delta]);
+            }
+
+            // Kiểm tra ảnh tồn tại
+            const leftExists = await imageExists(config.left);
+            const rightExists = await imageExists(config.right);
+
+            if (!leftExists) {
+                document.getElementById('compare-info').textContent =
+                    '⚠️ Chưa có ảnh visualization. Hãy Export GeoTIFF trước rồi render.';
+                return;
+            }
+
+            // Tạo image overlays
+            leftLayer = L.imageOverlay(config.left, bounds, { opacity: 1 });
+            leftLayer.addTo(map);
+
+            if (rightExists) {
+                rightLayer = L.imageOverlay(config.right, bounds, { opacity: 1 });
+                rightLayer.addTo(map);
+
+                // Tạo side-by-side slider
+                sideBySide = L.control.sideBySide(leftLayer, rightLayer);
+                sideBySide.addTo(map);
+
+                document.getElementById('compare-info').textContent =
+                    '◀ Kéo thanh trượt để so sánh 10m vs 1m ▶ | Scroll = zoom';
+            } else {
+                // Chưa có ảnh SR — chỉ hiện ảnh gốc
+                document.getElementById('label-right').textContent = '⏳ Chưa có ảnh SR';
+                document.getElementById('compare-info').textContent =
+                    'Chỉ hiện ảnh gốc 10m. Chạy S2DR3 Super Resolution để có ảnh 1m.';
+            }
+
+            // Fit map vào vùng ảnh
+            map.fitBounds(bounds);
+        }
+
+        /**
+         * Kiểm tra xem ảnh có tồn tại hay không (HEAD request).
+         */
+        async function imageExists(url) {
+            try {
+                const res = await fetch(url, { method: 'HEAD' });
+                return res.ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        /**
+         * Chuyển chế độ xem (RGB / NDVI / Infrared / False Color).
+         */
+        function switchMode(mode) {
+            currentMode = mode;
+
+            // Cập nhật tab active
+            document.querySelectorAll('.compare-mode').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            loadImages(mode);
+        }
+
+        // ── Khởi tạo ──
+        initMap();
+    </script>
+</body>
+
+</html>

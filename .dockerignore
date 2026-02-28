@@ -1,0 +1,30 @@
+# Dependencies
+.venv/
+venv/
+__pycache__/
+*.pyc
+node_modules/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# Docker (tránh recursive build context)
+.dockerignore
+
+# Gemini / Agent
+.gemini/
+.agents/
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Logs
+*.log

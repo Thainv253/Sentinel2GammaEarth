@@ -67,6 +67,17 @@ GEE_SCALE = 10  # Export scale mặc định (meters)
 DEVICE = os.getenv("DEVICE", "cpu").lower().strip()
 MEMORY_LIMIT = os.getenv("MEMORY_LIMIT", "8g")
 
+# ── Môi trường chạy ──────────────────────────────────────
+# local  = chạy trực tiếp trên máy (Mac/Windows/Linux)
+# docker = chạy trong Docker container
+# colab  = chạy trên Google Colab
+RUNTIME_ENV = os.getenv("RUNTIME_ENV", "local").lower().strip()
+
+# ── Web Server ───────────────────────────────────────────
+WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
+WEB_PORT = int(os.getenv("WEB_PORT", "5000"))
+WEB_DEBUG = os.getenv("WEB_DEBUG", "true").lower() == "true"
+
 # ── S2DR3 ────────────────────────────────────────────────
 S2DR3_TARGET_RESOLUTION = 1  # meters per pixel
 S2DR3_WHEEL_URL = (
@@ -77,6 +88,7 @@ S2DR3_WHEEL_URL = (
 
 def print_config():
     """In cấu hình hiện tại."""
+    env_labels = {"local": "🖥️  Local", "docker": "🐳 Docker", "colab": "☁️  Colab"}
     print("=" * 50)
     print("🛰️  Sentinel-2 Super Resolution — Cấu hình")
     print("=" * 50)
@@ -87,8 +99,10 @@ def print_config():
     print(f"  Cloud threshold: {CLOUD_THRESHOLD}%")
     print(f"  Data dir:        {DATA_DIR}")
     print(f"  Output dir:      {OUTPUT_DIR}")
+    print(f"  Runtime:         {env_labels.get(RUNTIME_ENV, RUNTIME_ENV)}")
     print(f"  Device:          {'🔥 GPU (NVIDIA CUDA)' if DEVICE == 'gpu' else '🧊 CPU'}")
     print(f"  Memory limit:    {MEMORY_LIMIT}")
+    print(f"  Web server:      http://{WEB_HOST}:{WEB_PORT}")
     print(f"  Bands (S2DR3):   {', '.join(S2DR3_BANDS)}")
     print("=" * 50)
 
