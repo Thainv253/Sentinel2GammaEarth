@@ -290,7 +290,10 @@
         updateProgress(data);
         if (data.status === 'done' || data.status === 'error' || data.status === 'idle') {
           eventSource.close();
-          if (data.status === 'done') refreshResults();
+          // Auto-refresh gallery khi hoàn tất (done hoặc idle đều có thể có files mới)
+          if (data.status === 'done' || data.status === 'idle') {
+            refreshResults();
+          }
         }
       };
     }
@@ -690,15 +693,31 @@
       document.getElementById('compare-overlay').style.width = val + '%';
     });
 
-    // ── Download All ──
+    // ── Download All (bao gồm cả GeoTIFF) ──
     function downloadAllResults() {
+      if (!currentFiles.length) {
+        alert('Chưa có files kết quả để tải!');
+        return;
+      }
+
+      // Download lần lượt, delay nhỏ giữa mỗi file để browser không block
+      let delay = 0;
       currentFiles.forEach(f => {
-        if (f.ext === '.png' || f.ext === '.jpg' || f.ext === '.jpeg') {
+        setTimeout(() => {
           const a = document.createElement('a');
-          a.href = f.path;
+          if (f.is_geotiff) {
+            // GeoTIFF → dùng /api/download/ (force attachment)
+            a.href = `/api/download/${f.dir}/${f.name}`;
+          } else {
+            // PNG/JPG → download trực tiếp
+            a.href = f.path;
+          }
           a.download = f.name;
+          document.body.appendChild(a);
           a.click();
-        }
+          document.body.removeChild(a);
+        }, delay);
+        delay += 300; // 300ms giữa mỗi file
       });
     }
 

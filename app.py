@@ -195,14 +195,14 @@ def api_export():
                     from scripts.render_visualizations import render_all_visualizations
                     rendered = render_all_visualizations()
                     _update_state(
-                        status="idle",
+                        status="done",
                         progress=100,
                         message=f"✅ Export hoàn tất: {len(files)} files + {len(rendered)} visualizations",
                     )
                 except Exception as ve:
                     # Render lỗi không critical — vẫn báo export thành công
                     _update_state(
-                        status="idle",
+                        status="done",
                         progress=100,
                         message=f"✅ Export hoàn tất: {len(files)} files (⚠️ Render lỗi: {ve})",
                     )
