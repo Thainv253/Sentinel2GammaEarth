@@ -90,13 +90,6 @@
             <div class="tooltip">Nâng độ phân giải từ 10m lên 1m/px bằng AI Deep Learning (S2DR3).<br>
               ⏱️ Thời gian: ~5-15 phút trên CPU.</div>
           </div>
-          <div class="btn-tooltip-wrap">
-            <a href="/compare" target="_blank" class="btn btn-outline" id="btn-compare">
-              <span class="btn-icon">🔍</span> So sánh (Split View)
-            </a>
-            <div class="tooltip">Mở trang so sánh trực quan giữa ảnh gốc 10m và ảnh super-resolution 1m.<br>Hỗ trợ: RGB,
-              NDVI, Infrared, False Color.</div>
-          </div>
         </div>
       </form>
     </section>
@@ -105,10 +98,19 @@
     <section class="panel panel-gallery">
       <div class="panel-header">
         <h2>🖼️ Kết quả</h2>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm" onclick="refreshResults()">🔄 Refresh</button>
-          <button class="btn btn-sm" onclick="clearAllResults()" style="color:#f66;">🗑️ Xoá</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn btn-sm" onclick="showCompareView()" id="btn-compare" style="display:none;">🔍 So
+            sánh</button>
+          <button class="btn btn-sm" onclick="downloadAllResults()">⬇️ Tải tất cả</button>
+          <button class="btn btn-sm" onclick="refreshResults()">🔄</button>
+          <button class="btn btn-sm" onclick="clearAllResults()" style="color:#f66;">🗑️</button>
         </div>
+      </div>
+
+      <!-- View Tabs: Gallery / Compare -->
+      <div class="view-tabs" id="view-tabs">
+        <button class="view-tab active" data-view="gallery" onclick="switchView('gallery')">🖼️ Gallery</button>
+        <button class="view-tab" data-view="compare" onclick="switchView('compare')">🔍 So sánh</button>
       </div>
 
       <!-- Mode Tabs -->
@@ -117,7 +119,7 @@
         <button class="mode-tab" data-mode="rgb" onclick="filterMode('rgb')">🌈 RGB</button>
         <button class="mode-tab" data-mode="ndvi" onclick="filterMode('ndvi')">🌿 NDVI</button>
         <button class="mode-tab" data-mode="infrared" onclick="filterMode('infrared')">🔴 Infrared</button>
-        <button class="mode-tab" data-mode="super_resolution" onclick="filterMode('super_resolution')">✨ 1m SR</button>
+        <button class="mode-tab" data-mode="false_color" onclick="filterMode('false_color')">🎨 False Color</button>
         <button class="mode-tab" data-mode="other" onclick="filterMode('other')">📁 Khác</button>
       </div>
 
@@ -126,6 +128,28 @@
         <div class="gallery-empty">
           <span>📂</span>
           <p>Chưa có ảnh kết quả</p>
+        </div>
+      </div>
+
+      <!-- Compare View (ẩn mặc định) -->
+      <div class="compare-inline" id="compare-inline" style="display:none;">
+        <div class="compare-mode-tabs">
+          <button class="compare-mode-btn active" onclick="switchCompareMode('rgb')">🌈 RGB</button>
+          <button class="compare-mode-btn" onclick="switchCompareMode('ndvi')">🌿 NDVI</button>
+          <button class="compare-mode-btn" onclick="switchCompareMode('infrared')">🔴 Infrared</button>
+          <button class="compare-mode-btn" onclick="switchCompareMode('false_color')">🎨 False Color</button>
+        </div>
+        <div class="compare-slider-container">
+          <div class="compare-slider" id="compare-slider">
+            <img class="compare-img compare-img-left" id="compare-left" src="" alt="Gốc 10m">
+            <div class="compare-overlay" id="compare-overlay">
+              <img class="compare-img compare-img-right" id="compare-right" src="" alt="Super-Res 1m">
+            </div>
+            <input type="range" class="compare-range" id="compare-range" min="0" max="100" value="50">
+            <div class="compare-label compare-label-l">◀ Gốc 10m</div>
+            <div class="compare-label compare-label-r">1m SR ▶</div>
+          </div>
+          <p class="compare-hint">← Kéo thanh trượt để so sánh →</p>
         </div>
       </div>
     </section>
@@ -177,12 +201,21 @@
     </section>
   </main>
 
-  <!-- Image Modal -->
+  <!-- Image Modal (Full Screen) -->
   <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="closeModal()">✕</button>
-      <img id="modal-img" src="" alt="">
-      <div class="modal-info" id="modal-info"></div>
+    <div class="modal-content modal-fullscreen" onclick="event.stopPropagation()">
+      <div class="modal-toolbar">
+        <span class="modal-title" id="modal-title"></span>
+        <div class="modal-actions">
+          <a class="modal-btn" id="modal-download" href="" download title="Tải ảnh về">⬇️ Download</a>
+          <a class="modal-btn" href="/compare" target="_blank" title="Mở trang so sánh">🔍 So sánh</a>
+          <button class="modal-btn modal-close-btn" onclick="closeModal()">✕</button>
+        </div>
+      </div>
+      <div class="modal-img-wrap">
+        <img id="modal-img" src="" alt="">
+      </div>
+      <div class="modal-footer" id="modal-info"></div>
     </div>
   </div>
 
@@ -496,19 +529,84 @@
       return labels[mode] || mode;
     }
 
-    // ── Modal ──
+    // ── Modal (Full Screen) ──
     function openModal(path, name, mode, sizeMb) {
       document.getElementById('modal-overlay').classList.add('open');
       document.getElementById('modal-img').src = path;
-      document.getElementById('modal-info').innerHTML = `
-        <strong>${name}</strong><br>
-        Mode: ${getModeLabel(mode)} | Size: ${sizeMb} MB
-        <br><a href="${path}" download class="btn btn-sm" style="margin-top:8px">⬇️ Download</a>
-      `;
+      document.getElementById('modal-title').textContent = name;
+      document.getElementById('modal-download').href = path;
+      document.getElementById('modal-info').innerHTML =
+        `${getModeLabel(mode)} &nbsp;|&nbsp; ${sizeMb} MB &nbsp;|&nbsp; Click ⬇️ Download để tải về`;
     }
 
     function closeModal() {
       document.getElementById('modal-overlay').classList.remove('open');
+    }
+
+    // ── View Switching (Gallery / Compare) ──
+    function switchView(view) {
+      document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.view-tab[data-view="${view}"]`).classList.add('active');
+
+      document.getElementById('gallery-grid').style.display = view === 'gallery' ? '' : 'none';
+      document.getElementById('mode-tabs').style.display = view === 'gallery' ? '' : 'none';
+      document.getElementById('compare-inline').style.display = view === 'compare' ? '' : 'none';
+
+      if (view === 'compare') switchCompareMode('rgb');
+    }
+
+    function showCompareView() {
+      switchView('compare');
+    }
+
+    // ── Inline Compare (Slider) ──
+    let currentCompareMode = 'rgb';
+    const COMPARE_MAP = {
+      rgb: { left: '/output/rgb_tci.png', right: '/output/sr_rgb_tci.png' },
+      ndvi: { left: '/output/ndvi.png', right: '/output/sr_ndvi.png' },
+      infrared: { left: '/output/infrared_irp.png', right: '/output/sr_infrared_irp.png' },
+      false_color: { left: '/output/false_color.png', right: '/output/sr_false_color.png' },
+    };
+
+    function switchCompareMode(mode) {
+      currentCompareMode = mode;
+      document.querySelectorAll('.compare-mode-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const cfg = COMPARE_MAP[mode];
+      const leftImg = document.getElementById('compare-left');
+      const rightImg = document.getElementById('compare-right');
+
+      leftImg.src = cfg.left;
+      rightImg.src = cfg.right;
+
+      // Check if SR image exists
+      rightImg.onerror = () => {
+        rightImg.style.display = 'none';
+        document.querySelector('.compare-label-r').textContent = '⏳ Chưa có SR';
+      };
+      rightImg.onload = () => {
+        rightImg.style.display = '';
+        document.querySelector('.compare-label-r').textContent = '1m SR ▶';
+      };
+    }
+
+    // Compare slider interaction
+    document.getElementById('compare-range').addEventListener('input', (e) => {
+      const val = e.target.value;
+      document.getElementById('compare-overlay').style.width = val + '%';
+    });
+
+    // ── Download All ──
+    function downloadAllResults() {
+      currentFiles.forEach(f => {
+        if (f.ext === '.png' || f.ext === '.jpg' || f.ext === '.jpeg') {
+          const a = document.createElement('a');
+          a.href = f.path;
+          a.download = f.name;
+          a.click();
+        }
+      });
     }
 
     // ESC to close

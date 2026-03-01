@@ -1071,3 +1071,253 @@ body::before {
   color: var(--accent-primary);
   background: rgba(59, 130, 246, 0.06);
 }
+
+/* ── View Tabs (Gallery / Compare) ── */
+.view-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  background: rgba(15, 20, 35, 0.5);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.view-tab {
+  flex: 1;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.view-tab:hover {
+  color: var(--text-primary);
+}
+
+.view-tab.active {
+  background: var(--accent);
+  color: white;
+}
+
+/* ── Modal Fullscreen ── */
+.modal-fullscreen {
+  display: flex;
+  flex-direction: column;
+  width: 96vw;
+  height: 94vh;
+  max-width: 96vw;
+  max-height: 94vh;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-glass);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.modal-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(30, 40, 60, 0.6);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.modal-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.modal-close-btn:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.modal-img-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.modal-img-wrap #modal-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.modal-footer {
+  padding: 8px 16px;
+  background: var(--bg-glass);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── Compare Inline ── */
+.compare-inline {
+  padding: 0;
+}
+
+.compare-mode-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.compare-mode-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.compare-mode-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.compare-mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.compare-slider-container {
+  position: relative;
+}
+
+.compare-slider {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 20, 35, 0.5);
+  border: 1px solid var(--border);
+  min-height: 300px;
+}
+
+.compare-img {
+  width: 100%;
+  display: block;
+}
+
+.compare-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+  border-right: 2px solid var(--accent);
+}
+
+.compare-img-right {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  max-width: none;
+}
+
+.compare-range {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: col-resize;
+  z-index: 10;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.compare-label {
+  position: absolute;
+  top: 10px;
+  padding: 4px 10px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  z-index: 5;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+.compare-label-l {
+  left: 10px;
+}
+
+.compare-label-r {
+  right: 10px;
+}
+
+.compare-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ── Gallery Download Icon ── */
+.gallery-dl {
+  text-decoration: none;
+  font-size: 12px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.gallery-dl:hover {
+  opacity: 1;
+}
+
+.gallery-card-img {
+  cursor: pointer;
+}
