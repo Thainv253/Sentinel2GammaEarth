@@ -211,6 +211,138 @@ def _simulate_colab_env():
         pass
 
 
+def _extract_preview_url(text: str) -> str | None:
+    """Trích xuất preview URL gamayos.github.io từ stdout output."""
+    import re
+    match = re.search(r'(https://gamayos\.github\.io/[^\s]+)', text)
+    return match.group(1) if match else None
+
+
+def _parse_s3_paths(preview_url: str) -> dict | None:
+    """Parse preview URL → S3 paths cho GeoTIFF files.
+
+    URL format:
+      https://gamayos.github.io/.../s2dr3-demo-*.html?ds=VN-T48PXS-7e4bcb7cc-20240322#...
+
+    S3 structure:
+      s3://sentinel-s2dr3/{country}/{tile}/{pid}/S2L2A_{pid}_TCI.tif     (gốc 10m)
+      s3://sentinel-s2dr3/{country}/{tile}/{pid}/S2L2Ax10_{pid}_TCI.tif  (SR 1m)
+    """
+    from urllib.parse import urlparse, parse_qs
+
+    parsed = urlparse(preview_url)
+    qs = parse_qs(parsed.query)
+    ds = qs.get("ds", [None])[0]
+    if not ds:
+        return None
+
+    parts = ds.split("-")
+    if len(parts) < 4:
+        return None
+
+    country = parts[0]   # VN
+    tile = parts[1]      # T48PXS
+    hash_val = parts[2]  # 7e4bcb7cc
+    date_val = parts[3]  # 20240322
+
+    pid = f"{tile}-{hash_val}-{date_val}"
+
+    # COG tile server base
+    cog_base = "https://kgbbmarmdgv53gdb47pls2v2oe0qotcs.lambda-url.eu-central-1.on.aws"
+
+    # S3 base path
+    s3_base = f"s3://sentinel-s2dr3/{country}/{tile}/{pid}"
+
+    # S3 HTTPS direct (public bucket)
+    https_base = f"https://sentinel-s2dr3.s3.eu-central-1.amazonaws.com/{country}/{tile}/{pid}"
+
+    files = {
+        # Super Resolution 1m
+        f"S2L2Ax10_{pid}_TCI.tif": "SR RGB 1m (True Color)",
+        f"S2L2Ax10_{pid}_NDVI.tif": "SR NDVI 1m",
+        f"S2L2Ax10_{pid}_IRP.tif": "SR Infrared 1m",
+        # Original 10m
+        f"S2L2A_{pid}_TCI.tif": "Original RGB 10m",
+        f"S2L2A_{pid}_NDVI.tif": "Original NDVI 10m",
+        f"S2L2A_{pid}_IRP.tif": "Original Infrared 10m",
+    }
+
+    return {
+        "pid": pid,
+        "country": country,
+        "tile": tile,
+        "s3_base": s3_base,
+        "https_base": https_base,
+        "cog_base": cog_base,
+        "files": files,
+    }
+
+
+def _download_sr_from_s3(preview_url: str, out_dir: Path) -> list[str]:
+    """Download SR GeoTIFF files từ S3 về local.
+
+    S2DR3 upload kết quả lên S3, không tạo file local.
+    Function này download files GeoTIFF về thư mục output.
+    """
+    import requests
+
+    info = _parse_s3_paths(preview_url)
+    if not info:
+        print("   ❌ Không parse được preview URL")
+        return []
+
+    downloaded = []
+
+    for filename, label in info["files"].items():
+        out_file = out_dir / filename
+        if out_file.exists():
+            print(f"   ⏭️  {filename} đã tồn tại")
+            downloaded.append(filename)
+            continue
+
+        # Thử download từ S3 HTTPS trực tiếp
+        url = f"{info['https_base']}/{filename}"
+        print(f"   📥 {label}: {filename}...")
+
+        try:
+            resp = requests.get(url, stream=True, timeout=120)
+            if resp.status_code == 200:
+                total = int(resp.headers.get("content-length", 0))
+                with open(out_file, "wb") as f:
+                    downloaded_bytes = 0
+                    for chunk in resp.iter_content(chunk_size=1024 * 1024):  # 1MB chunks
+                        f.write(chunk)
+                        downloaded_bytes += len(chunk)
+                        if total > 0:
+                            pct = downloaded_bytes * 100 // total
+                            print(f"      {pct}% ({downloaded_bytes // 1024 // 1024}MB / {total // 1024 // 1024}MB)", end="\r")
+
+                size_mb = out_file.stat().st_size / 1024 / 1024
+                print(f"   ✅ {filename} ({size_mb:.1f} MB)             ")
+                downloaded.append(filename)
+            elif resp.status_code == 403:
+                print(f"   ❌ S3 Access Denied — bucket không public")
+                print(f"      Thử dùng preview URL để xem online: {preview_url}")
+                break
+            else:
+                print(f"   ⚠️  HTTP {resp.status_code} — bỏ qua {filename}")
+        except requests.exceptions.Timeout:
+            print(f"   ⚠️  Timeout download {filename} — file quá lớn hoặc mạng chậm")
+        except requests.exceptions.ConnectionError:
+            print(f"   ⚠️  Connection error — kiểm tra kết nối mạng")
+            break
+        except Exception as e:
+            print(f"   ⚠️  Lỗi download {filename}: {e}")
+
+    if downloaded:
+        print(f"\n   📁 Đã download {len(downloaded)}/{len(info['files'])} files SR GeoTIFF")
+    else:
+        print(f"\n   ❌ Không download được file nào từ S3")
+        print(f"   💡 Dùng preview URL để xem online: {preview_url}")
+
+    return downloaded
+
+
 def process_with_s2dr3(
     lat: float | None = None,
     lon: float | None = None,
@@ -323,16 +455,38 @@ def process_with_s2dr3(
         try:
             # API: s2dr3.inferutils.test(xy, date, simulate=False, savepath=None)
             # xy = (lon, lat), date = "YYYY-MM-DD"
-            result = inferutils.test(
-                (lon, lat),
-                date,
-                savepath=str(out_dir),
-            )
+            #
+            # S2DR3 upload kết quả lên S3, KHÔNG tạo GeoTIFF local.
+            # Cần capture stdout để lấy preview URL → parse → download từ S3.
+            import io
+            import contextlib
+
+            stdout_capture = io.StringIO()
+            with contextlib.redirect_stdout(stdout_capture):
+                result = inferutils.test(
+                    (lon, lat),
+                    date,
+                    savepath=str(out_dir),
+                )
         finally:
             os.chdir(original_cwd)
 
+        # In lại stdout đã capture
+        captured = stdout_capture.getvalue()
+        print(captured)
+
         print(f"\n✅ S2DR3 inference hoàn tất!")
         print(f"   Output: {out_dir}")
+
+        # ── Parse preview URL từ stdout ──
+        preview_url = _extract_preview_url(captured) or (result if isinstance(result, str) else None)
+
+        # ── Download SR GeoTIFF từ S3 ──
+        downloaded_files = []
+        if preview_url:
+            print(f"\n🔗 Preview: {preview_url}")
+            print(f"\n📥 Đang download SR GeoTIFF từ S3...")
+            downloaded_files = _download_sr_from_s3(preview_url, out_dir)
 
         # Liệt kê files output
         output_files = list(out_dir.glob("*.tif")) + list(out_dir.glob("*.png"))
@@ -342,21 +496,20 @@ def process_with_s2dr3(
                 size_mb = f.stat().st_size / 1024 / 1024
                 print(f"   - {f.name} ({size_mb:.1f} MB)")
 
+        if not downloaded_files:
+            print(f"\n❌ Không tìm thấy file SR GeoTIFF trong output/")
+            print(f"   S2DR3 chưa tạo output? Kiểm tra lại quá trình inference.")
+
         print(f"\n💡 Tiếp theo:")
         print(f"   python scripts/visualize_results.py")
         print(f"   hoặc mở http://localhost:5000 (web UI)")
 
-        # Trả về dict thay vì result (inferutils.test có thể trả về None)
-        # Kiểm tra files output thực tế để xác định thành công
         sr_files = [f for f in output_files if "x10" in f.name.lower() or "s2l2ax10" in f.name.lower()]
-        preview_url = None
-        if result and isinstance(result, str) and "gamayos.github.io" in result:
-            preview_url = result
 
         return {
-            "success": len(output_files) > 0,
+            "success": len(output_files) > 0 or len(downloaded_files) > 0,
             "files": [f.name for f in output_files],
-            "sr_files": [f.name for f in sr_files],
+            "sr_files": [f.name for f in sr_files] if sr_files else downloaded_files,
             "output_dir": str(out_dir),
             "preview_url": preview_url,
         }
