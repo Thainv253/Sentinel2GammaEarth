@@ -491,40 +491,133 @@
 
     function renderGallery(files) {
       const grid = document.getElementById('gallery-grid');
+      const compareBtn = document.getElementById('btn-compare');
+
       if (!files.length) {
         grid.innerHTML = '<div class="gallery-empty"><span>📂</span><p>Chưa có ảnh kết quả</p></div>';
+        if (compareBtn) compareBtn.style.display = 'none';
         return;
       }
 
-      grid.innerHTML = files.map(f => `
-        <div class="gallery-card" data-mode="${f.mode}" onclick="openModal('${f.path}', '${f.name}', '${f.mode}', ${f.size_mb})">
-          ${f.ext === '.png' || f.ext === '.jpg' || f.ext === '.jpeg'
-          ? `<img class="gallery-thumb" src="${f.path}" alt="${f.name}" loading="lazy">`
-          : `<div class="gallery-thumb gallery-tif"><span>🗺️</span><small>GeoTIFF</small></div>`
-        }
-          <div class="gallery-info">
-            <span class="gallery-name" title="${f.name}">${f.name}</span>
-            <div class="gallery-meta">
-              <span class="mode-badge mode-${f.mode}">${getModeLabel(f.mode)}</span>
-              <span>${f.size_mb} MB</span>
+      if (compareBtn) compareBtn.style.display = 'inline-flex';
+
+      // Tách files: GeoTIFF S2DR3 vs PNG preview
+      const srTifs = files.filter(f => f.is_sr && f.is_geotiff);
+      const origTifs = files.filter(f => f.is_s2_original && f.is_geotiff);
+      const otherTifs = files.filter(f => f.is_geotiff && !f.is_sr && !f.is_s2_original);
+      const previews = files.filter(f => !f.is_geotiff);
+
+      let html = '';
+
+      // ── Section: SR GeoTIFF Downloads ──
+      if (srTifs.length > 0) {
+        html += `
+          <div class="gallery-section">
+            <div class="gallery-section-header">
+              <span class="gallery-section-icon">🔬</span>
+              <span>Super Resolution 1m (GeoTIFF)</span>
+              <span class="gallery-section-count">${srTifs.length} files</span>
             </div>
+            ${srTifs.map(f => _renderTifCard(f, true)).join('')}
+          </div>`;
+      }
+
+      // ── Section: Original GeoTIFF ──
+      if (origTifs.length > 0) {
+        html += `
+          <div class="gallery-section">
+            <div class="gallery-section-header">
+              <span class="gallery-section-icon">🛰️</span>
+              <span>Gốc Sentinel-2 10m (GeoTIFF)</span>
+              <span class="gallery-section-count">${origTifs.length} files</span>
+            </div>
+            ${origTifs.map(f => _renderTifCard(f, false)).join('')}
+          </div>`;
+      }
+
+      // ── Section: Other GeoTIFF ──
+      if (otherTifs.length > 0) {
+        html += `
+          <div class="gallery-section">
+            <div class="gallery-section-header">
+              <span class="gallery-section-icon">📦</span>
+              <span>GeoTIFF khác</span>
+              <span class="gallery-section-count">${otherTifs.length} files</span>
+            </div>
+            ${otherTifs.map(f => _renderTifCard(f, false)).join('')}
+          </div>`;
+      }
+
+      // ── Section: PNG Previews ──
+      if (previews.length > 0) {
+        html += `
+          <div class="gallery-section">
+            <div class="gallery-section-header">
+              <span class="gallery-section-icon">🖼️</span>
+              <span>Preview (PNG)</span>
+              <span class="gallery-section-count">${previews.length} files</span>
+            </div>
+            <div class="gallery-preview-grid">
+              ${previews.map(f => `
+                <div class="gallery-card" data-mode="${f.mode}">
+                  <div class="gallery-card-img" onclick="openModal('${f.path}', '${f.name}', '${f.mode}', ${f.size_mb})">
+                    <img class="gallery-thumb" src="${f.path}" alt="${f.name}" loading="lazy">
+                  </div>
+                  <div class="gallery-info">
+                    <span class="gallery-name" title="${f.name}">${f.name}</span>
+                    <div class="gallery-meta">
+                      <span class="mode-badge mode-${f.mode}">${getModeLabel(f.mode)}</span>
+                      <span>${f.size_mb} MB</span>
+                      <a href="${f.path}" download class="gallery-dl" title="Download PNG" onclick="event.stopPropagation()">⬇️</a>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
+      }
+
+      grid.innerHTML = html || '<div class="gallery-empty"><span>📂</span><p>Chưa có ảnh kết quả</p></div>';
+    }
+
+    // GeoTIFF card — nút download lớn, rõ ràng
+    function _renderTifCard(f, isSR) {
+      const dlUrl = `/api/download/${f.dir}/${f.name}`;
+      const icon = isSR ? '🔬' : (f.is_s2_original ? '🛰️' : '📦');
+      const badge = isSR ? 'sr-badge' : 'orig-badge';
+      const label = f.display_label || f.name;
+      return `
+        <div class="tif-card ${isSR ? 'tif-card-sr' : ''}">
+          <div class="tif-card-info">
+            <span class="tif-icon">${icon}</span>
+            <div class="tif-details">
+              <span class="tif-name" title="${f.name}">${f.name}</span>
+              <span class="tif-label">${label}</span>
+            </div>
+            <span class="tif-size">${f.size_mb} MB</span>
           </div>
-        </div>
-      `).join('');
+          <a href="${dlUrl}" class="tif-download-btn ${badge}" download>
+            ⬇️ Download GeoTIFF
+          </a>
+        </div>`;
     }
 
     function filterMode(mode) {
       document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
       document.querySelector(`.mode-tab[data-mode="${mode}"]`).classList.add('active');
 
-      const filtered = mode === 'all' ? currentFiles : currentFiles.filter(f => f.mode === mode);
+      const filtered = mode === 'all' ? currentFiles : currentFiles.filter(f =>
+        f.mode === mode || f.mode === `sr_${mode}`
+      );
       renderGallery(filtered);
     }
 
     function getModeLabel(mode) {
       const labels = {
         rgb: '🌈 RGB', ndvi: '🌿 NDVI', infrared: '🔴 IR', false_color: '🎨 False',
-        super_resolution: '✨ 1m', original_10m: '📷 10m', original_20m: '📷 20m', other: '📁'
+        sr_rgb: '🔬 SR RGB', sr_ndvi: '🔬 SR NDVI', sr_infrared: '🔬 SR IR',
+        sr_false_color: '🔬 SR False', super_resolution: '✨ 1m',
+        original_10m: '📷 10m', original_20m: '📷 20m', other: '📁'
       };
       return labels[mode] || mode;
     }

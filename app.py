@@ -348,7 +348,16 @@ def api_clear_results():
 
 
 def _scan_output_files():
-    """Quét thư mục output và data để tìm ảnh."""
+    """Quét thư mục output và data để tìm ảnh.
+
+    Phân loại thông minh dựa trên naming convention S2DR3:
+      - S2L2A_*_TCI.tif    → gốc 10m, RGB
+      - S2L2Ax10_*_TCI.tif  → super-res 1m, RGB
+      - S2L2A_*_NDVI.tif   → gốc 10m, NDVI
+      - S2L2Ax10_*_NDVI.tif → super-res 1m, NDVI
+      - S2L2A_*_IRP.tif    → gốc 10m, Infrared
+      - S2L2Ax10_*_IRP.tif  → super-res 1m, Infrared
+    """
     files = []
 
     for directory, label in [(OUTPUT_DIR, "output"), (DATA_DIR, "data")]:
@@ -359,24 +368,42 @@ def _scan_output_files():
         for ext in ["*.tif", "*.tiff", "*.png", "*.jpg", "*.jpeg"]:
             for f in dir_path.glob(ext):
                 size_mb = f.stat().st_size / 1024 / 1024
-                name = f.stem.lower()
+                name = f.stem
+                name_lower = name.lower()
+                is_geotiff = f.suffix.lower() in (".tif", ".tiff")
+
+                # ── Phân loại S2DR3 output (GeoTIFF COG) ──
+                is_sr = "s2l2ax10" in name_lower or "x10_" in name_lower
+                is_s2_original = name_lower.startswith("s2l2a_") and not is_sr
 
                 # Xác định mode hiển thị
                 mode = "other"
-                if "rgb" in name or "color" in name or "true" in name:
+                if "tci" in name_lower or "rgb" in name_lower or "color" in name_lower or "true" in name_lower:
                     mode = "rgb"
-                elif "ndvi" in name:
+                elif "ndvi" in name_lower:
                     mode = "ndvi"
-                elif "infrared" in name or "ir" in name or "nir" in name:
+                elif "irp" in name_lower or "infrared" in name_lower or "ir" in name_lower or "nir" in name_lower:
                     mode = "infrared"
-                elif "false" in name:
+                elif "false" in name_lower:
                     mode = "false_color"
-                elif "10m" in name:
+                elif "10m" in name_lower:
                     mode = "original_10m"
-                elif "20m" in name:
+                elif "20m" in name_lower:
                     mode = "original_20m"
-                elif "1m" in name or "sr" in name or "super" in name:
-                    mode = "super_resolution"
+
+                # Nếu là SR GeoTIFF → đánh dấu mode đặc biệt
+                if is_sr and is_geotiff:
+                    mode = f"sr_{mode}" if mode != "other" else "super_resolution"
+
+                # Label hiển thị
+                if is_sr and is_geotiff:
+                    display_label = f"🔬 SR 1m — {_mode_display(mode)}"
+                elif is_s2_original and is_geotiff:
+                    display_label = f"🛰️ Gốc 10m — {_mode_display(mode)}"
+                elif is_geotiff:
+                    display_label = f"📦 GeoTIFF — {name}"
+                else:
+                    display_label = f"🖼️ Preview — {_mode_display(mode)}"
 
                 files.append({
                     "name": f.name,
@@ -385,9 +412,28 @@ def _scan_output_files():
                     "mode": mode,
                     "dir": label,
                     "ext": f.suffix.lower(),
+                    "is_geotiff": is_geotiff,
+                    "is_sr": is_sr,
+                    "is_s2_original": is_s2_original,
+                    "display_label": display_label,
                 })
 
+    # Sắp xếp: SR GeoTIFF trước, rồi original GeoTIFF, rồi PNG
+    files.sort(key=lambda f: (0 if f["is_sr"] else 1, 0 if f["is_geotiff"] else 1, f["name"]))
     return files
+
+
+def _mode_display(mode: str) -> str:
+    """Chuyển mode code thành label hiển thị."""
+    labels = {
+        "rgb": "RGB", "sr_rgb": "RGB 1m",
+        "ndvi": "NDVI", "sr_ndvi": "NDVI 1m",
+        "infrared": "Infrared", "sr_infrared": "Infrared 1m",
+        "false_color": "False Color", "sr_false_color": "False Color 1m",
+        "original_10m": "10m Bands", "original_20m": "20m Bands",
+        "super_resolution": "Super Res",
+    }
+    return labels.get(mode, mode)
 
 
 # ── Thumbnail API (GEE) ──
@@ -441,6 +487,49 @@ def serve_data(filename):
 @app.route("/output/<path:filename>")
 def serve_output(filename):
     return send_from_directory(str(OUTPUT_DIR), filename)
+
+
+# ── Download GeoTIFF (force download, không preview) ──
+@app.route("/api/download/<dir_name>/<path:filename>")
+def api_download_file(dir_name, filename):
+    """Download file trực tiếp (Content-Disposition: attachment).
+
+    Dùng cho GeoTIFF lớn — browser sẽ download thay vì mở.
+    """
+    if dir_name == "output":
+        directory = str(OUTPUT_DIR)
+    elif dir_name == "data":
+        directory = str(DATA_DIR)
+    else:
+        return jsonify({"error": "Invalid directory"}), 400
+
+    return send_from_directory(
+        directory, filename,
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.route("/api/sr-files")
+def api_sr_files():
+    """Liệt kê riêng files GeoTIFF super-resolution từ S2DR3.
+
+    Trả về danh sách files SR (S2L2Ax10_*) để UI hiển thị
+    section download GeoTIFF riêng biệt.
+    """
+    all_files = _scan_output_files()
+    sr_files = [f for f in all_files if f["is_sr"] and f["is_geotiff"]]
+    original_files = [f for f in all_files if f.get("is_s2_original") and f["is_geotiff"]]
+    preview_files = [f for f in all_files if not f["is_geotiff"]]
+
+    return jsonify({
+        "success": True,
+        "sr_files": sr_files,
+        "original_files": original_files,
+        "preview_files": preview_files,
+        "total_sr": len(sr_files),
+        "total_original": len(original_files),
+    })
 
 
 # ── Compare Page ──

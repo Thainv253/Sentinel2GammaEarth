@@ -1321,3 +1321,172 @@ body::before {
 .gallery-card-img {
   cursor: pointer;
 }
+
+/* ── Gallery Sections ── */
+.gallery-section {
+  margin-bottom: 16px;
+}
+
+.gallery-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.gallery-section-icon {
+  font-size: 16px;
+}
+
+.gallery-section-count {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(30, 40, 60, 0.5);
+  border-radius: 10px;
+  color: var(--text-muted);
+}
+
+/* ── GeoTIFF Card ── */
+.tif-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(15, 20, 35, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  transition: all var(--transition);
+}
+
+.tif-card:hover {
+  border-color: var(--border-active);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.tif-card-sr {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.tif-card-sr:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.tif-card-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tif-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.tif-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tif-name {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tif-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.tif-size {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.tif-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tif-download-btn.sr-badge {
+  background: var(--gradient-accent);
+  color: white;
+}
+
+.tif-download-btn.sr-badge:hover {
+  box-shadow: 0 4px 16px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.tif-download-btn.orig-badge {
+  background: rgba(30, 40, 60, 0.6);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.tif-download-btn.orig-badge:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Gallery Preview Grid ── */
+.gallery-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 1200px) {
+  .gallery-preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── SR Mode Badges ── */
+.mode-sr_rgb {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.mode-sr_ndvi {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.mode-sr_infrared {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.mode-sr_false_color {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
