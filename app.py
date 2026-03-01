@@ -235,22 +235,28 @@ def api_process():
                 device=data.get("device") or DEVICE,
             )
 
-            if result is None:
-                # S2DR3 không thể chạy trực tiếp
+            # ── Kiểm tra kết quả S2DR3 ──
+            # result có thể là: dict (thành công), None (env check fail / lỗi)
+            s2dr3_success = False
+            if isinstance(result, dict):
+                s2dr3_success = result.get("success", False)
+            elif result is not None:
+                # inferutils.test() trả về non-None → coi là thành công
+                s2dr3_success = True
+
+            if not s2dr3_success:
+                # S2DR3 không thể chạy hoặc thất bại
                 is_docker = _is_inside_docker()
                 if not is_docker:
                     _update_state(
                         status="error",
                         progress=100,
                         message=(
-                            "❌ S2DR3 cần chạy trong Docker container (Linux x86_64).\n"
-                            "Hướng dẫn: docker compose --profile cpu up --build\n"
-                            "Sau đó truy cập http://localhost:5050"
+                            "❌ S2DR3 không tạo được file output.\n"
+                            "Kiểm tra logs terminal để xem lỗi chi tiết."
                         ),
                     )
                 else:
-                    # Đang trong Docker nhưng vẫn lỗi — thiếu dependency
-                    colab_file = OUTPUT_DIR / "colab_instructions.json"
                     _update_state(
                         status="error",
                         progress=100,
@@ -274,10 +280,23 @@ def api_process():
             # Scan output files
             output_files = _scan_output_files()
 
+            # Lấy preview URL từ gamayos.github.io (nếu có)
+            preview_url = ""
+            sr_file_names = []
+            if isinstance(result, dict):
+                preview_url = result.get("preview_url") or ""
+                sr_file_names = result.get("sr_files", [])
+
+            msg = f"✅ S2DR3 hoàn tất! {len(sr_file_names)} SR files."
+            if sr_file_names:
+                msg += f"\n📁 Files: {', '.join(sr_file_names)}"
+            if preview_url:
+                msg += f"\n🔗 Preview: {preview_url}"
+
             _update_state(
                 status="done",
                 progress=100,
-                message=f"✅ S2DR3 hoàn tất! {len(sr_rendered)} SR visualizations.",
+                message=msg,
                 output_files=output_files,
             )
 

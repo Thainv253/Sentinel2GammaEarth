@@ -346,7 +346,20 @@ def process_with_s2dr3(
         print(f"   python scripts/visualize_results.py")
         print(f"   hoặc mở http://localhost:5000 (web UI)")
 
-        return result
+        # Trả về dict thay vì result (inferutils.test có thể trả về None)
+        # Kiểm tra files output thực tế để xác định thành công
+        sr_files = [f for f in output_files if "x10" in f.name.lower() or "s2l2ax10" in f.name.lower()]
+        preview_url = None
+        if result and isinstance(result, str) and "gamayos.github.io" in result:
+            preview_url = result
+
+        return {
+            "success": len(output_files) > 0,
+            "files": [f.name for f in output_files],
+            "sr_files": [f.name for f in sr_files],
+            "output_dir": str(out_dir),
+            "preview_url": preview_url,
+        }
 
     except ImportError as e:
         # Xử lý lỗi missing module cụ thể

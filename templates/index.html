@@ -693,16 +693,29 @@
       document.getElementById('compare-overlay').style.width = val + '%';
     });
 
-    // ── Download All (bao gồm cả GeoTIFF) ──
+    // ── Download All (ưu tiên SR GeoTIFF) ──
     function downloadAllResults() {
       if (!currentFiles.length) {
         alert('Chưa có files kết quả để tải!');
         return;
       }
 
+      // Ưu tiên SR GeoTIFF (files super-resolution từ S2DR3)
+      let filesToDownload = currentFiles.filter(f => f.is_sr && f.is_geotiff);
+
+      // Nếu không có SR files, tải tất cả GeoTIFF
+      if (filesToDownload.length === 0) {
+        filesToDownload = currentFiles.filter(f => f.is_geotiff);
+      }
+
+      // Nếu vẫn không có, tải tất cả
+      if (filesToDownload.length === 0) {
+        filesToDownload = currentFiles;
+      }
+
       // Download lần lượt, delay nhỏ giữa mỗi file để browser không block
       let delay = 0;
-      currentFiles.forEach(f => {
+      filesToDownload.forEach(f => {
         setTimeout(() => {
           const a = document.createElement('a');
           if (f.is_geotiff) {
@@ -717,7 +730,7 @@
           a.click();
           document.body.removeChild(a);
         }, delay);
-        delay += 300; // 300ms giữa mỗi file
+        delay += 500; // 500ms giữa mỗi file
       });
     }
 
