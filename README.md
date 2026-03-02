@@ -251,6 +251,110 @@ python config/settings.py
 
 ---
 
+#### Phương án D: WSL2 Native — Không Docker (Khi Docker lỗi AMD64 emulation)
+
+> 💡 **Dùng khi nào?** Docker trên Windows có thể gặp lỗi AMD64 emulation hoặc hiệu năng kém do CPU không hỗ trợ tốt x86_64 emulation. Phương án này chạy S2DR3 **trực tiếp trong Ubuntu WSL2** mà không cần Docker.
+
+##### Bước D1: Cài WSL2 + Ubuntu
+
+```powershell
+# PowerShell (Run as Administrator)
+wsl --install -d Ubuntu-24.04
+
+# Restart máy nếu được yêu cầu, rồi mở Ubuntu từ Start Menu
+# Tạo username + password khi được hỏi
+```
+
+##### Bước D2: Cài đặt trong Ubuntu WSL2
+
+```bash
+# Cập nhật system
+sudo apt update && sudo apt upgrade -y
+
+# Cài Python 3.12 + GDAL + dependencies
+sudo apt install -y python3 python3-pip python3-venv \
+    python3-numpy python3-gdal gdal-bin libgdal-dev \
+    libgeos-dev libproj-dev git wget curl
+
+# Kiểm tra Python version (cần >= 3.12)
+python3 --version
+```
+
+##### Bước D3: Clone project và setup
+
+```bash
+# Clone project
+git clone https://github.com/Thainv253/Sentinel2GammaEarth.git
+cd Sentinel2GammaEarth
+
+# Tạo virtual environment (giữ system numpy + GDAL)
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+
+# Force numpy 1.x (quan trọng: GDAL compiled cho numpy 1.x)
+pip install "numpy>=1.26.0,<2.0"
+
+# Cài dependencies
+pip install -r requirements.txt
+
+# Cài S2DR3 wheel
+pip install https://storage.googleapis.com/0x7ff601307fa5/s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl
+
+# Cài S2DR3 hidden dependencies
+pip install scikit-image opencv-python-headless gspread
+
+# Verify S2DR3
+python3 -c "import s2dr3; import skimage; print('✅ OK')"
+```
+
+##### Bước D4: Cấu hình
+
+```bash
+# Copy file cấu hình mẫu
+cp .env.example .env
+
+# Sửa .env
+nano .env
+```
+
+Sửa `.env`:
+```env
+GCP_PROJECT_ID=your-project-id
+LATITUDE=10.762622
+LONGITUDE=106.660172
+DEVICE=cpu
+```
+
+##### Bước D5: Chạy
+
+```bash
+# Xác thực Earth Engine
+python3 scripts/gee_authenticate.py
+
+# Chạy Web UI
+python3 app.py
+# → Mở trình duyệt Windows: http://localhost:5000
+
+# Hoặc chạy CLI pipeline
+python3 run_pipeline.py
+```
+
+> 💡 **Truy cập từ Windows**: WSL2 và Windows chia sẻ network, nên mở `http://localhost:5000` trên trình duyệt Windows sẽ truy cập được Web UI đang chạy trong WSL2.
+
+> 💡 **Truy cập file**: Từ Windows Explorer, gõ `\\wsl$\Ubuntu-24.04\home\<username>\Sentinel2GammaEarth\output` để xem file kết quả.
+
+##### Xử lý lỗi WSL2:
+
+| Lỗi | Cách khắc phục |
+|-----|----------------|
+| `Virtualization not enabled` | Vào BIOS → Enable Intel VT-x / AMD-V |
+| `python3: command not found` | `sudo apt install python3` |
+| `ModuleNotFoundError: GDAL` | `sudo apt install python3-gdal` |
+| `numpy ABI mismatch` | `pip install "numpy>=1.26.0,<2.0" --force-reinstall` |
+| `No module named 'skimage'` | `pip install scikit-image` |
+
+---
+
 #### Phương án C: Google Colab (Miễn phí GPU)
 
 Mở file `notebooks/S2DR3_SuperResolution.ipynb` trên Google Colab. Notebook đã bao gồm toàn bộ pipeline.
