@@ -25,3 +25,21 @@ requests>=2.31.0
 
 # Web UI
 flask>=3.0.0
+
+# --- S2DR3 Dependencies ---
+boto3
+fiona
+geojson
+geopandas
+geopy
+google-cloud-storage
+h3
+icecream
+imagecodecs
+mgrs
+pystac-client
+stackstac
+torch
+utm
+xmltodict
+beautifulsoup4
