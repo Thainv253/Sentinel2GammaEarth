@@ -81,15 +81,15 @@ def check_environment(device: str = "cpu"):
                 "   pip install torch"
             )
 
-    # Kiểm tra superresolutionv1
+    # Kiểm tra s2dr3
     try:
-        import superresolutionv1
+        import s2dr3
         print(f"  SuperResolutionV1:        ✅ Đã cài đặt")
     except ImportError:
         issues.append(
-            "❌ superresolutionv1 chưa cài đặt!\n"
+            "❌ s2dr3 chưa cài đặt!\n"
             "   pip install https://storage.googleapis.com/0x7ff601307fa5/"
-            "superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl"
+            "s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl"
         )
 
     # Kiểm tra SuperResolutionV1 runtime dependencies
@@ -414,7 +414,7 @@ def process_with_superresolutionv1(
 
     # ── Chạy SuperResolutionV1 ──
     try:
-        from superresolutionv1 import inferutils
+        from s2dr3 import inferutils
 
         print(f"🚀 Bắt đầu SuperResolutionV1 inference...")
         print(f"   Tọa độ:  {lat}, {lon}")
@@ -453,7 +453,7 @@ def process_with_superresolutionv1(
             pass
 
         try:
-            # API: superresolutionv1.inferutils.test(xy, date, simulate=False, savepath=None)
+            # API: s2dr3.inferutils.test(xy, date, simulate=False, savepath=None)
             # xy = (lon, lat), date = "YYYY-MM-DD"
             #
             # SuperResolutionV1 upload kết quả lên S3, KHÔNG tạo GeoTIFF local.
@@ -565,14 +565,14 @@ def process_with_superresolutionv1(
 def _generate_colab_instructions(lat: float, lon: float, date: str | None, out_dir: Path):
     """Tạo file hướng dẫn cho Google Colab fallback."""
     code_snippet = (
-        f"import superresolutionv1.inferutils\n"
-        f"superresolutionv1.inferutils.test(lonlat=({lon}, {lat}), date='{date or 'YYYY-MM-DD'}')"
+        f"import s2dr3.inferutils\n"
+        f"s2dr3.inferutils.test(lonlat=({lon}, {lat}), date='{date or 'YYYY-MM-DD'}')"
     )
     instructions = {
         "colab_url": "https://colab.research.google.com/",
         "steps": [
             "1. Mở Google Colab → Runtime → Change runtime type → T4 GPU",
-            "2. Cài đặt: !pip -q install https://storage.googleapis.com/0x7ff601307fa5/superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl",
+            "2. Cài đặt: !pip -q install https://storage.googleapis.com/0x7ff601307fa5/s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl",
             "3. Chạy code:",
             code_snippet,
             "4. Download kết quả (*.tif, *.png)",

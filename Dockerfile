@@ -69,7 +69,7 @@ RUN pip install --no-cache-dir \
     || echo "⚠️  SuperResolutionV1 deps install warning"
 
 # ── Cài đặt SuperResolutionV1 wheel (linux_x86_64 only) ──
-ARG SuperResolutionV1_WHEEL_URL=https://storage.googleapis.com/0x7ff601307fa5/superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl
+ARG SuperResolutionV1_WHEEL_URL=https://storage.googleapis.com/0x7ff601307fa5/s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl
 RUN pip install --no-cache-dir --no-deps ${SuperResolutionV1_WHEEL_URL} \
     || echo "⚠️  SuperResolutionV1 wheel install failed — URL may have changed."
 
