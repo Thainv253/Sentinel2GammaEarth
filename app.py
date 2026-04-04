@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from flask import Flask, render_template, request, jsonify, send_from_directory, Response, redirect
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response, redirect, session
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -30,6 +30,42 @@ from config.settings import (
 )
 
 app = Flask(__name__)
+app.secret_key = "super-secret-key-1234"
+
+@app.before_request
+def require_login():
+    """Kiểm tra login. Ngoại trừ các route login, static."""
+    # Bỏ qua kiểm tra login cho các route phục vụ trang login và static
+    if request.endpoint in ('login', 'static'):
+        return
+    
+    # Cho phép thumbnail API load trực tiếp nếu cần
+    if request.path.startswith('/api/thumbnail'):
+        return
+
+    # Mấu chốt: không login thì chặn
+    if not session.get('logged_in'):
+        if request.path.startswith('/api/'):
+            return jsonify({"error": "Unauthorized", "success": False}), 401
+        return redirect('/login')
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if username == "namnh" and password == "a1b2c3d4":
+            session['logged_in'] = True
+            return redirect("/")
+        else:
+            error = "Tài khoản hoặc mật khẩu không đúng."
+    return render_template("login.html", error=error)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
 # ── Trạng thái pipeline (in-memory) ────────────────────
 pipeline_state = {
@@ -219,40 +255,40 @@ def api_export():
 
 @app.route("/api/process", methods=["POST"])
 def api_process():
-    """Chạy S2DR3 super resolution (async)."""
+    """Chạy SuperResolutionV1 super resolution (async)."""
     data = request.json or {}
 
     def _do_process():
         try:
-            _update_state(status="processing", progress=30, message="🚀 Đang chạy S2DR3 inference...")
+            _update_state(status="processing", progress=30, message="🚀 Đang chạy SuperResolutionV1 inference...")
 
-            from scripts.s2dr3_process import process_with_s2dr3
+            from scripts.superresolutionv1_process import process_with_superresolutionv1
 
-            result = process_with_s2dr3(
+            result = process_with_superresolutionv1(
                 lat=_safe_float(data.get("latitude"), LATITUDE),
                 lon=_safe_float(data.get("longitude"), LONGITUDE),
                 date=data.get("date"),
                 device=data.get("device") or DEVICE,
             )
 
-            # ── Kiểm tra kết quả S2DR3 ──
+            # ── Kiểm tra kết quả SuperResolutionV1 ──
             # result có thể là: dict (thành công), None (env check fail / lỗi)
-            s2dr3_success = False
+            superresolutionv1_success = False
             if isinstance(result, dict):
-                s2dr3_success = result.get("success", False)
+                superresolutionv1_success = result.get("success", False)
             elif result is not None:
                 # inferutils.test() trả về non-None → coi là thành công
-                s2dr3_success = True
+                superresolutionv1_success = True
 
-            if not s2dr3_success:
-                # S2DR3 không thể chạy hoặc thất bại
+            if not superresolutionv1_success:
+                # SuperResolutionV1 không thể chạy hoặc thất bại
                 is_docker = _is_inside_docker()
                 if not is_docker:
                     _update_state(
                         status="error",
                         progress=100,
                         message=(
-                            "❌ S2DR3 không tạo được file output.\n"
+                            "❌ SuperResolutionV1 không tạo được file output.\n"
                             "Kiểm tra logs terminal để xem lỗi chi tiết."
                         ),
                     )
@@ -261,13 +297,13 @@ def api_process():
                         status="error",
                         progress=100,
                         message=(
-                            "❌ S2DR3 inference thất bại. Kiểm tra logs container.\n"
+                            "❌ SuperResolutionV1 inference thất bại. Kiểm tra logs container.\n"
                             "Thử: docker compose build --no-cache"
                         ),
                     )
                 return
 
-            # ── S2DR3 inference thành công → render SR visualizations ──
+            # ── SuperResolutionV1 inference thành công → render SR visualizations ──
             _update_state(status="rendering", progress=80, message="📊 Đang render SR visualizations...")
 
             try:
@@ -287,7 +323,7 @@ def api_process():
                 preview_url = result.get("preview_url") or ""
                 sr_file_names = result.get("sr_files", [])
 
-            msg = f"✅ S2DR3 hoàn tất! {len(sr_file_names)} SR files."
+            msg = f"✅ SuperResolutionV1 hoàn tất! {len(sr_file_names)} SR files."
             if sr_file_names:
                 msg += f"\n📁 Files: {', '.join(sr_file_names)}"
             if preview_url:
@@ -303,11 +339,11 @@ def api_process():
         except Exception as e:
             import traceback
             traceback.print_exc()
-            _update_state(status="error", message=f"❌ Lỗi S2DR3: {str(e)}", error=str(e))
+            _update_state(status="error", message=f"❌ Lỗi SuperResolutionV1: {str(e)}", error=str(e))
 
     thread = threading.Thread(target=_do_process, daemon=True)
     thread.start()
-    return jsonify({"success": True, "message": "S2DR3 đã bắt đầu..."})
+    return jsonify({"success": True, "message": "SuperResolutionV1 đã bắt đầu..."})
 
 
 @app.route("/api/results")
@@ -332,14 +368,14 @@ def api_generate_colab():
     notebook = generate_colab_notebook(lat=lat, lon=lon, date=date, buffer_meters=buffer)
 
     # Lưu notebook vào output/
-    nb_path = OUTPUT_DIR / "S2DR3_SuperResolution.ipynb"
+    nb_path = OUTPUT_DIR / "SuperResolutionV1_SuperResolution.ipynb"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(nb_path, "w", encoding="utf-8") as f:
         json.dump(notebook, f, indent=2, ensure_ascii=False)
 
     return jsonify({
         "success": True,
-        "download_url": f"/output/S2DR3_SuperResolution.ipynb",
+        "download_url": f"/output/SuperResolutionV1_SuperResolution.ipynb",
         "message": "Notebook đã tạo! Tải về rồi upload lên Google Colab.",
     })
 
@@ -369,7 +405,7 @@ def api_clear_results():
 def _scan_output_files():
     """Quét thư mục output và data để tìm ảnh.
 
-    Phân loại thông minh dựa trên naming convention S2DR3:
+    Phân loại thông minh dựa trên naming convention SuperResolutionV1:
       - S2L2A_*_TCI.tif    → gốc 10m, RGB
       - S2L2Ax10_*_TCI.tif  → super-res 1m, RGB
       - S2L2A_*_NDVI.tif   → gốc 10m, NDVI
@@ -391,7 +427,7 @@ def _scan_output_files():
                 name_lower = name.lower()
                 is_geotiff = f.suffix.lower() in (".tif", ".tiff")
 
-                # ── Phân loại S2DR3 output (GeoTIFF COG) ──
+                # ── Phân loại SuperResolutionV1 output (GeoTIFF COG) ──
                 is_sr = "s2l2ax10" in name_lower or "x10_" in name_lower
                 is_s2_original = name_lower.startswith("s2l2a_") and not is_sr
 
@@ -531,7 +567,7 @@ def api_download_file(dir_name, filename):
 
 @app.route("/api/sr-files")
 def api_sr_files():
-    """Liệt kê riêng files GeoTIFF super-resolution từ S2DR3.
+    """Liệt kê riêng files GeoTIFF super-resolution từ SuperResolutionV1.
 
     Trả về danh sách files SR (S2L2Ax10_*) để UI hiển thị
     section download GeoTIFF riêng biệt.

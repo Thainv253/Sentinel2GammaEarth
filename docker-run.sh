@@ -7,7 +7,7 @@
 #   ./docker-run.sh cpu          # Web UI (CPU mode)
 #   ./docker-run.sh gpu          # Web UI (GPU mode)
 #   ./docker-run.sh cpu pipeline # Chạy full pipeline
-#   ./docker-run.sh cpu s2dr3    # Chỉ chạy S2DR3
+#   ./docker-run.sh cpu superresolutionv1    # Chỉ chạy SuperResolutionV1
 #   ./docker-run.sh cpu shell    # Mở bash shell
 # =============================================
 
@@ -25,7 +25,7 @@ if [[ "$MODE" != "cpu" && "$MODE" != "gpu" ]]; then
     echo "   ./docker-run.sh cpu          # Web UI (CPU)"
     echo "   ./docker-run.sh gpu          # Web UI (GPU)"
     echo "   ./docker-run.sh cpu pipeline # Full pipeline"
-    echo "   ./docker-run.sh cpu s2dr3    # Chỉ S2DR3"
+    echo "   ./docker-run.sh cpu superresolutionv1    # Chỉ SuperResolutionV1"
     echo "   ./docker-run.sh cpu shell    # Bash shell"
     exit 1
 fi
@@ -64,9 +64,9 @@ case "$ACTION" in
         echo "🚀 Chạy pipeline đầy đủ..."
         docker compose --profile "$MODE" run --rm "$SERVICE" python run_pipeline.py
         ;;
-    s2dr3)
-        echo "🚀 Chạy S2DR3 super resolution..."
-        docker compose --profile "$MODE" run --rm "$SERVICE" python run_pipeline.py --step s2dr3
+    superresolutionv1)
+        echo "🚀 Chạy SuperResolutionV1 super resolution..."
+        docker compose --profile "$MODE" run --rm "$SERVICE" python run_pipeline.py --step superresolutionv1
         ;;
     *)
         echo "🚀 Chạy: python run_pipeline.py --step $ACTION"

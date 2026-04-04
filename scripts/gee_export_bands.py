@@ -85,7 +85,7 @@ def export_bands_to_local(
     from config.settings import (
         LATITUDE, LONGITUDE, START_DATE, END_DATE,
         CLOUD_THRESHOLD, BUFFER_METERS, GEE_SCALE,
-        S2DR3_BANDS, DATA_DIR, BAND_RESOLUTION,
+        SuperResolutionV1_BANDS, DATA_DIR, BAND_RESOLUTION,
     )
 
     lat = lat or LATITUDE
@@ -126,13 +126,13 @@ def export_bands_to_local(
     print()
 
     # ── Export từng nhóm band theo resolution ──
-    print(f"📥 Export {len(S2DR3_BANDS)} bands → GeoTIFF...")
+    print(f"📥 Export {len(SuperResolutionV1_BANDS)} bands → GeoTIFF...")
 
     # Nhóm bands theo resolution để export hiệu quả
     band_groups = {
-        "10m": [b for b in S2DR3_BANDS if BAND_RESOLUTION.get(b) == 10],
-        "20m": [b for b in S2DR3_BANDS if BAND_RESOLUTION.get(b) == 20],
-        "60m": [b for b in S2DR3_BANDS if BAND_RESOLUTION.get(b) == 60],
+        "10m": [b for b in SuperResolutionV1_BANDS if BAND_RESOLUTION.get(b) == 10],
+        "20m": [b for b in SuperResolutionV1_BANDS if BAND_RESOLUTION.get(b) == 20],
+        "60m": [b for b in SuperResolutionV1_BANDS if BAND_RESOLUTION.get(b) == 60],
     }
 
     exported_files = []
@@ -221,7 +221,7 @@ def export_bands_to_local(
         "center": {"lat": lat, "lon": lon},
         "buffer_meters": buffer,
         "exported_files": exported_files,
-        "bands": S2DR3_BANDS,
+        "bands": SuperResolutionV1_BANDS,
         "export_time": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
     with open(meta_file, "w", encoding="utf-8") as f:
@@ -233,7 +233,7 @@ def export_bands_to_local(
     print(f"   Dir:   {out_dir}")
     print(f"   Meta:  {meta_file}")
     print(f"\n💡 Tiếp theo:")
-    print(f"   python scripts/s2dr3_process.py")
+    print(f"   python scripts/superresolutionv1_process.py")
 
     return exported_files
 

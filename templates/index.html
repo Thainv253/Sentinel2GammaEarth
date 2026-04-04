@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🛰️ Sentinel-2 Super Resolution</title>
-  <meta name="description" content="Nâng cấp ảnh vệ tinh Sentinel-2 lên 1m/px với S2DR3">
+  <meta name="description" content="Nâng cấp ảnh vệ tinh Sentinel-2 lên 1m/px với SuperResolutionV1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
@@ -21,7 +21,7 @@
         <span class="logo-icon">🛰️</span>
         <div>
           <h1>Sentinel-2 Super Resolution</h1>
-          <span class="subtitle">S2DR3 — Gamma Earth | Deep Learning 10m → 1m/px</span>
+          <span class="subtitle">SuperResolutionV1 — Gamma Earth | Deep Learning 10m → 1m/px</span>
         </div>
       </div>
       <div class="header-badges">
@@ -85,9 +85,9 @@
           </div>
           <div class="btn-tooltip-wrap">
             <button type="button" class="btn btn-accent" id="btn-process" onclick="doProcess()" disabled>
-              <span class="btn-icon">🚀</span> S2DR3 Super Resolution
+              <span class="btn-icon">🚀</span> SuperResolutionV1 Super Resolution
             </button>
-            <div class="tooltip">Nâng độ phân giải từ 10m lên 1m/px bằng AI Deep Learning (S2DR3).<br>
+            <div class="tooltip">Nâng độ phân giải từ 10m lên 1m/px bằng AI Deep Learning (SuperResolutionV1).<br>
               ⏱️ Thời gian: ~5-15 phút trên CPU.</div>
           </div>
         </div>
@@ -413,12 +413,12 @@
       document.getElementById('btn-process').disabled = false;
     }
 
-    // ── Process S2DR3 ──
+    // ── Process SuperResolutionV1 ──
     async function doProcess() {
       const btn = document.getElementById('btn-process');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Đang xử lý...';
-      showProgress('🚀 Đang chạy S2DR3 Super Resolution...');
+      showProgress('🚀 Đang chạy SuperResolutionV1 Super Resolution...');
 
       const formData = getFormData();
       formData.date = selectedDate;
@@ -437,7 +437,7 @@
       }
 
       btn.disabled = false;
-      btn.innerHTML = '<span class="btn-icon">🚀</span> S2DR3 Super Resolution';
+      btn.innerHTML = '<span class="btn-icon">🚀</span> SuperResolutionV1 Super Resolution';
     }
 
     // ── Results Gallery ──
@@ -504,7 +504,7 @@
 
       if (compareBtn) compareBtn.style.display = 'inline-flex';
 
-      // Tách files: GeoTIFF S2DR3 vs PNG preview
+      // Tách files: GeoTIFF SuperResolutionV1 vs PNG preview
       const srTifs = files.filter(f => f.is_sr && f.is_geotiff);
       const origTifs = files.filter(f => f.is_s2_original && f.is_geotiff);
       const otherTifs = files.filter(f => f.is_geotiff && !f.is_sr && !f.is_s2_original);
@@ -700,7 +700,7 @@
         return;
       }
 
-      // Ưu tiên SR GeoTIFF (files super-resolution từ S2DR3)
+      // Ưu tiên SR GeoTIFF (files super-resolution từ SuperResolutionV1)
       let filesToDownload = currentFiles.filter(f => f.is_sr && f.is_geotiff);
 
       // Nếu không có SR files, tải tất cả GeoTIFF

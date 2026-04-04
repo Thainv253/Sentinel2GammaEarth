@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate Google Colab notebook (.ipynb) cho S2DR3 inference.
+Generate Google Colab notebook (.ipynb) cho SuperResolutionV1 inference.
 
 Tạo notebook pre-filled với tọa độ, ngày, tự động:
-1. Cài S2DR3 wheel
+1. Cài SuperResolutionV1 wheel
 2. Fetch ảnh từ GEE
 3. Chạy inference
 4. Download kết quả
@@ -23,7 +23,7 @@ def generate_colab_notebook(
     cells = [
         # ── Title cell ──
         _markdown_cell(
-            "# 🛰️ Sentinel-2 Super Resolution — S2DR3\n"
+            "# 🛰️ Sentinel-2 Super Resolution — SuperResolutionV1\n"
             "**Nâng cấp ảnh vệ tinh 10m → 1m/pixel bằng Deep Learning**\n\n"
             f"- 📍 Tọa độ: `{lat}, {lon}`\n"
             f"- 📅 Ngày: `{date}`\n"
@@ -31,15 +31,15 @@ def generate_colab_notebook(
             "> ⚡ Notebook này tự động chạy tất cả. Bấm **Runtime → Run all** (Ctrl+F9)"
         ),
 
-        # ── Step 1: Install S2DR3 ──
-        _markdown_cell("## 1️⃣ Cài đặt S2DR3"),
+        # ── Step 1: Install SuperResolutionV1 ──
+        _markdown_cell("## 1️⃣ Cài đặt SuperResolutionV1"),
         _code_cell(
             "%%capture\n"
-            "# Cài S2DR3 wheel (Gamma Earth)\n"
+            "# Cài SuperResolutionV1 wheel (Gamma Earth)\n"
             "!pip install https://storage.googleapis.com/0x7ff601307fa5/"
-            "s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl\n"
+            "superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl\n"
             "!pip install gspread oauth2client tifffile scikit-image\n"
-            "print('✅ S2DR3 đã cài xong!')"
+            "print('✅ SuperResolutionV1 đã cài xong!')"
         ),
 
         # ── Step 2: Configure ──
@@ -56,14 +56,14 @@ def generate_colab_notebook(
             f'print(f"📐 Buffer: {{BUFFER_METERS}}m")'
         ),
 
-        # ── Step 3: Run S2DR3 ──
-        _markdown_cell("## 3️⃣ Chạy S2DR3 Super Resolution"),
+        # ── Step 3: Run SuperResolutionV1 ──
+        _markdown_cell("## 3️⃣ Chạy SuperResolutionV1 Super Resolution"),
         _code_cell(
             "import os\n"
             "os.makedirs('/content/output', exist_ok=True)\n"
             "os.makedirs('/var/log/journal', exist_ok=True)\n\n"
-            "from s2dr3 import inferutils\n\n"
-            "print('🚀 Bắt đầu S2DR3 inference...')\n"
+            "from superresolutionv1 import inferutils\n\n"
+            "print('🚀 Bắt đầu SuperResolutionV1 inference...')\n"
             "print(f'   Tọa độ: ({LONGITUDE}, {LATITUDE})')\n"
             "print(f'   Ngày: {DATE}')\n"
             "print()\n\n"
@@ -72,7 +72,7 @@ def generate_colab_notebook(
             "    DATE,\n"
             "    savepath='/content/output'\n"
             ")\n\n"
-            "print('\\n✅ S2DR3 inference hoàn tất!')"
+            "print('\\n✅ SuperResolutionV1 inference hoàn tất!')"
         ),
 
         # ── Step 4: Show results ──
@@ -98,7 +98,7 @@ def generate_colab_notebook(
         _code_cell(
             "import shutil\n\n"
             "# Nén tất cả output\n"
-            "output_zip = '/content/s2dr3_output'\n"
+            "output_zip = '/content/superresolutionv1_output'\n"
             "shutil.make_archive(output_zip, 'zip', '/content/output')\n\n"
             "# Download\n"
             "from google.colab import files\n"
@@ -114,7 +114,7 @@ def generate_colab_notebook(
             "colab": {
                 "provenance": [],
                 "gpuType": "T4",
-                "name": f"S2DR3_SuperResolution_{date}",
+                "name": f"SuperResolutionV1_SuperResolution_{date}",
             },
             "kernelspec": {
                 "name": "python3",
@@ -148,6 +148,6 @@ def _code_cell(source: str) -> dict:
 
 if __name__ == "__main__":
     nb = generate_colab_notebook()
-    with open("S2DR3_SuperResolution.ipynb", "w") as f:
+    with open("SuperResolutionV1_SuperResolution.ipynb", "w") as f:
         json.dump(nb, f, indent=2, ensure_ascii=False)
-    print("✅ Notebook saved: S2DR3_SuperResolution.ipynb")
+    print("✅ Notebook saved: SuperResolutionV1_SuperResolution.ipynb")

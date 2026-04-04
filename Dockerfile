@@ -60,18 +60,18 @@ RUN pip install --no-cache-dir "numpy>=1.26.0,<2.0"
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Cài S2DR3 hidden dependencies (scikit-image, opencv) ──
+# ── Cài SuperResolutionV1 hidden dependencies (scikit-image, opencv) ──
 # Cài riêng để đảm bảo không bị numpy ABI mismatch
 RUN pip install --no-cache-dir \
     scikit-image>=0.22.0 \
     opencv-python-headless \
     gspread \
-    || echo "⚠️  S2DR3 deps install warning"
+    || echo "⚠️  SuperResolutionV1 deps install warning"
 
-# ── Cài đặt S2DR3 wheel (linux_x86_64 only) ──
-ARG S2DR3_WHEEL_URL=https://storage.googleapis.com/0x7ff601307fa5/s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl
-RUN pip install --no-cache-dir --no-deps ${S2DR3_WHEEL_URL} \
-    || echo "⚠️  S2DR3 wheel install failed — URL may have changed."
+# ── Cài đặt SuperResolutionV1 wheel (linux_x86_64 only) ──
+ARG SuperResolutionV1_WHEEL_URL=https://storage.googleapis.com/0x7ff601307fa5/superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl
+RUN pip install --no-cache-dir --no-deps ${SuperResolutionV1_WHEEL_URL} \
+    || echo "⚠️  SuperResolutionV1 wheel install failed — URL may have changed."
 
 # ── Verify scikit-image import ──
 RUN python3 -c "import skimage; print(f'✅ scikit-image {skimage.__version__}')" \

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-S2DR3 Super Resolution Processing
+SuperResolutionV1 Super Resolution Processing
 ====================================
-Chạy mô hình S2DR3 để nâng cấp ảnh Sentinel-2 từ 10m/20m/60m → 1m/px.
+Chạy mô hình SuperResolutionV1 để nâng cấp ảnh Sentinel-2 từ 10m/20m/60m → 1m/px.
 
 Hỗ trợ 2 chế độ compute (cấu hình trong .env):
   - DEVICE=cpu  → chạy trên CPU (chậm hơn, ~10-30 phút)
   - DEVICE=gpu  → chạy trên GPU NVIDIA (nhanh, ~1-2 phút)
 
 Sử dụng:
-    python scripts/s2dr3_process.py
-    python scripts/s2dr3_process.py --device cpu
-    python scripts/s2dr3_process.py --input-dir ./data --output-dir ./output
+    python scripts/superresolutionv1_process.py
+    python scripts/superresolutionv1_process.py --device cpu
+    python scripts/superresolutionv1_process.py --input-dir ./data --output-dir ./output
 """
 
 import sys
@@ -26,7 +26,7 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent))
 
 
 def check_environment(device: str = "cpu"):
-    """Kiểm tra môi trường chạy S2DR3."""
+    """Kiểm tra môi trường chạy SuperResolutionV1."""
     issues = []
     warnings = []
 
@@ -40,7 +40,7 @@ def check_environment(device: str = "cpu"):
 
     if os_name != "Linux":
         issues.append(
-            f"❌ OS: {os_name} — S2DR3 wheel chỉ hỗ trợ Linux x86_64.\n"
+            f"❌ OS: {os_name} — SuperResolutionV1 wheel chỉ hỗ trợ Linux x86_64.\n"
             f"   💡 Sử dụng Docker hoặc Google Colab."
         )
 
@@ -70,7 +70,7 @@ def check_environment(device: str = "cpu"):
             if device == "gpu":
                 warnings.append(
                     "⚠️  DEVICE=gpu nhưng không tìm thấy GPU NVIDIA.\n"
-                    "   S2DR3 sẽ tự động fallback về CPU (chậm hơn).\n"
+                    "   SuperResolutionV1 sẽ tự động fallback về CPU (chậm hơn).\n"
                     "   Kiểm tra: nvidia-smi"
                 )
     except ImportError:
@@ -81,18 +81,18 @@ def check_environment(device: str = "cpu"):
                 "   pip install torch"
             )
 
-    # Kiểm tra s2dr3
+    # Kiểm tra superresolutionv1
     try:
-        import s2dr3
-        print(f"  S2DR3:        ✅ Đã cài đặt")
+        import superresolutionv1
+        print(f"  SuperResolutionV1:        ✅ Đã cài đặt")
     except ImportError:
         issues.append(
-            "❌ s2dr3 chưa cài đặt!\n"
+            "❌ superresolutionv1 chưa cài đặt!\n"
             "   pip install https://storage.googleapis.com/0x7ff601307fa5/"
-            "s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl"
+            "superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl"
         )
 
-    # Kiểm tra S2DR3 runtime dependencies
+    # Kiểm tra SuperResolutionV1 runtime dependencies
     _check_and_install_deps()
 
     # In warnings
@@ -113,7 +113,7 @@ def check_environment(device: str = "cpu"):
 
 
 def _check_and_install_deps():
-    """Kiểm tra và tự động cài đặt S2DR3 runtime dependencies nếu thiếu."""
+    """Kiểm tra và tự động cài đặt SuperResolutionV1 runtime dependencies nếu thiếu."""
     missing = []
 
     deps_map = {
@@ -131,7 +131,7 @@ def _check_and_install_deps():
             missing.append((module_name, pip_name))
 
     if missing:
-        print(f"\n  ⚠️  Thiếu {len(missing)} S2DR3 dependencies, đang tự cài đặt...")
+        print(f"\n  ⚠️  Thiếu {len(missing)} SuperResolutionV1 dependencies, đang tự cài đặt...")
         import subprocess
         for module_name, pip_name in missing:
             print(f"     📦 Cài đặt {pip_name} (cho {module_name})...")
@@ -148,7 +148,7 @@ def _check_and_install_deps():
 
 
 def _set_device(device: str):
-    """Cấu hình PyTorch device trước khi chạy S2DR3."""
+    """Cấu hình PyTorch device trước khi chạy SuperResolutionV1."""
     try:
         import torch
 
@@ -166,13 +166,13 @@ def _set_device(device: str):
 
 
 def _simulate_colab_env():
-    """Simulate Google Colab environment — S2DR3 chỉ chạy trên Colab.
+    """Simulate Google Colab environment — SuperResolutionV1 chỉ chạy trên Colab.
 
-    S2DR3 binary kiểm tra Colab env và từ chối chạy nếu không phải.
+    SuperResolutionV1 binary kiểm tra Colab env và từ chối chạy nếu không phải.
     Function này fake Colab modules + env vars để bypass restriction.
 
     QUAN TRỌNG: Không ghi đè google namespace package vì google.auth
-    cần tồn tại cho gspread (dependency của s2dr3.datautils).
+    cần tồn tại cho gspread (dependency của superresolutionv1.datautils).
     """
     import types
 
@@ -203,7 +203,7 @@ def _simulate_colab_env():
         sys.modules["google.colab.drive"] = drive_mod
         google.colab = colab_mod
 
-    # 3. Tạo thư mục log cần thiết cho S2DR3
+    # 3. Tạo thư mục log cần thiết cho SuperResolutionV1
     log_dir = Path("/var/log/journal")
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -222,11 +222,11 @@ def _parse_s3_paths(preview_url: str) -> dict | None:
     """Parse preview URL → S3 paths cho GeoTIFF files.
 
     URL format:
-      https://gamayos.github.io/.../s2dr3-demo-*.html?ds=VN-T48PXS-7e4bcb7cc-20240322#...
+      https://gamayos.github.io/.../superresolutionv1-demo-*.html?ds=VN-T48PXS-7e4bcb7cc-20240322#...
 
     S3 structure:
-      s3://sentinel-s2dr3/{country}/{tile}/{pid}/S2L2A_{pid}_TCI.tif     (gốc 10m)
-      s3://sentinel-s2dr3/{country}/{tile}/{pid}/S2L2Ax10_{pid}_TCI.tif  (SR 1m)
+      s3://sentinel-superresolutionv1/{country}/{tile}/{pid}/S2L2A_{pid}_TCI.tif     (gốc 10m)
+      s3://sentinel-superresolutionv1/{country}/{tile}/{pid}/S2L2Ax10_{pid}_TCI.tif  (SR 1m)
     """
     from urllib.parse import urlparse, parse_qs
 
@@ -251,10 +251,10 @@ def _parse_s3_paths(preview_url: str) -> dict | None:
     cog_base = "https://kgbbmarmdgv53gdb47pls2v2oe0qotcs.lambda-url.eu-central-1.on.aws"
 
     # S3 base path
-    s3_base = f"s3://sentinel-s2dr3/{country}/{tile}/{pid}"
+    s3_base = f"s3://sentinel-superresolutionv1/{country}/{tile}/{pid}"
 
     # S3 HTTPS direct (public bucket)
-    https_base = f"https://sentinel-s2dr3.s3.eu-central-1.amazonaws.com/{country}/{tile}/{pid}"
+    https_base = f"https://sentinel-superresolutionv1.s3.eu-central-1.amazonaws.com/{country}/{tile}/{pid}"
 
     files = {
         # Super Resolution 1m
@@ -281,7 +281,7 @@ def _parse_s3_paths(preview_url: str) -> dict | None:
 def _download_sr_from_s3(preview_url: str, out_dir: Path) -> list[str]:
     """Download SR GeoTIFF files từ S3 về local.
 
-    S2DR3 upload kết quả lên S3, không tạo file local.
+    SuperResolutionV1 upload kết quả lên S3, không tạo file local.
     Function này download files GeoTIFF về thư mục output.
     """
     import requests
@@ -343,7 +343,7 @@ def _download_sr_from_s3(preview_url: str, out_dir: Path) -> list[str]:
     return downloaded
 
 
-def process_with_s2dr3(
+def process_with_superresolutionv1(
     lat: float | None = None,
     lon: float | None = None,
     date: str | None = None,
@@ -352,9 +352,9 @@ def process_with_s2dr3(
     device: str | None = None,
 ):
     """
-    Chạy S2DR3 super resolution.
+    Chạy SuperResolutionV1 super resolution.
 
-    S2DR3 có 2 chế độ:
+    SuperResolutionV1 có 2 chế độ:
     1. Online: Tự fetch dữ liệu từ GEE bằng tọa độ + ngày
     2. Offline: Xử lý file GeoTIFF đã tải về
 
@@ -377,7 +377,7 @@ def process_with_s2dr3(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
-    print("🛰️  S2DR3 Super Resolution Pipeline")
+    print("🛰️  SuperResolutionV1 Super Resolution Pipeline")
     print("=" * 60)
     print()
 
@@ -386,7 +386,7 @@ def process_with_s2dr3(
 
     if not env_ok:
         print("=" * 60)
-        print("⚠️  Không thể chạy S2DR3 trực tiếp trên máy này.")
+        print("⚠️  Không thể chạy SuperResolutionV1 trực tiếp trên máy này.")
         print()
         print("📋 Phương án thay thế:")
         print()
@@ -395,12 +395,12 @@ def process_with_s2dr3(
         print("      docker-run.bat gpu         # Chạy bằng GPU")
         print()
         print("   2. 🌐 Google Colab (miễn phí GPU T4):")
-        print("      Mở notebooks/S2DR3_SuperResolution.ipynb")
+        print("      Mở notebooks/SuperResolutionV1_SuperResolution.ipynb")
         print()
         print("   3. 🖥️  WSL2 trên Windows:")
         print("      wsl --install")
         print("      # Trong WSL Ubuntu terminal:")
-        print("      pip install s2dr3-*.whl && python scripts/s2dr3_process.py")
+        print("      pip install superresolutionv1-*.whl && python scripts/superresolutionv1_process.py")
         print("=" * 60)
 
         _generate_colab_instructions(lat, lon, date, out_dir)
@@ -409,30 +409,30 @@ def process_with_s2dr3(
     # ── Cấu hình device ──
     _set_device(device)
 
-    # ── Simulate Colab environment (S2DR3 yêu cầu Colab) ──
+    # ── Simulate Colab environment (SuperResolutionV1 yêu cầu Colab) ──
     _simulate_colab_env()
 
-    # ── Chạy S2DR3 ──
+    # ── Chạy SuperResolutionV1 ──
     try:
-        from s2dr3 import inferutils
+        from superresolutionv1 import inferutils
 
-        print(f"🚀 Bắt đầu S2DR3 inference...")
+        print(f"🚀 Bắt đầu SuperResolutionV1 inference...")
         print(f"   Tọa độ:  {lat}, {lon}")
         print(f"   Output:  {out_dir}")
         print()
 
         if not date:
-            print(f"   ❌ S2DR3 yêu cầu tham số date (ngày chụp).")
+            print(f"   ❌ SuperResolutionV1 yêu cầu tham số date (ngày chụp).")
             print(f"   💡 Chạy: python scripts/gee_search_imagery.py để tìm ngày phù hợp")
-            print(f"   Rồi: python scripts/s2dr3_process.py --date YYYY-MM-DD")
+            print(f"   Rồi: python scripts/superresolutionv1_process.py --date YYYY-MM-DD")
             return None
 
-        print(f"   📡 Chế độ: Online (S2DR3 tự fetch từ GEE)")
+        print(f"   📡 Chế độ: Online (SuperResolutionV1 tự fetch từ GEE)")
         print(f"   Ngày:    {date}")
         print(f"   lonlat:  ({lon}, {lat})")
         print()
 
-        # S2DR3 output files vào thư mục hiện tại → chdir
+        # SuperResolutionV1 output files vào thư mục hiện tại → chdir
         original_cwd = os.getcwd()
         os.chdir(str(out_dir))
 
@@ -453,10 +453,10 @@ def process_with_s2dr3(
             pass
 
         try:
-            # API: s2dr3.inferutils.test(xy, date, simulate=False, savepath=None)
+            # API: superresolutionv1.inferutils.test(xy, date, simulate=False, savepath=None)
             # xy = (lon, lat), date = "YYYY-MM-DD"
             #
-            # S2DR3 upload kết quả lên S3, KHÔNG tạo GeoTIFF local.
+            # SuperResolutionV1 upload kết quả lên S3, KHÔNG tạo GeoTIFF local.
             # Cần capture stdout để lấy preview URL → parse → download từ S3.
             import io
             import contextlib
@@ -475,7 +475,7 @@ def process_with_s2dr3(
         captured = stdout_capture.getvalue()
         print(captured)
 
-        print(f"\n✅ S2DR3 inference hoàn tất!")
+        print(f"\n✅ SuperResolutionV1 inference hoàn tất!")
         print(f"   Output: {out_dir}")
 
         # ── Parse preview URL từ stdout ──
@@ -498,7 +498,7 @@ def process_with_s2dr3(
 
         if not downloaded_files:
             print(f"\n❌ Không tìm thấy file SR GeoTIFF trong output/")
-            print(f"   S2DR3 chưa tạo output? Kiểm tra lại quá trình inference.")
+            print(f"   SuperResolutionV1 chưa tạo output? Kiểm tra lại quá trình inference.")
 
         print(f"\n💡 Tiếp theo:")
         print(f"   python scripts/visualize_results.py")
@@ -517,7 +517,7 @@ def process_with_s2dr3(
     except ImportError as e:
         # Xử lý lỗi missing module cụ thể
         module_name = str(e).replace("No module named '", "").replace("'", "")
-        print(f"\n❌ Lỗi S2DR3: Thiếu module '{module_name}'")
+        print(f"\n❌ Lỗi SuperResolutionV1: Thiếu module '{module_name}'")
         print(f"\n💡 Sửa lỗi:")
 
         # Map module → pip package
@@ -549,7 +549,7 @@ def process_with_s2dr3(
         return None
 
     except Exception as e:
-        print(f"\n❌ Lỗi S2DR3: {e}")
+        print(f"\n❌ Lỗi SuperResolutionV1: {e}")
         print(f"\n💡 Kiểm tra:")
         if device == "gpu":
             print(f"   - GPU NVIDIA hoạt động: nvidia-smi")
@@ -558,21 +558,21 @@ def process_with_s2dr3(
         else:
             print(f"   - Đủ RAM (tối thiểu 8GB)")
             print(f"   - Input files tồn tại trong {in_dir}")
-        print(f"   - Thử: DEVICE=cpu python scripts/s2dr3_process.py")
+        print(f"   - Thử: DEVICE=cpu python scripts/superresolutionv1_process.py")
         return None
 
 
 def _generate_colab_instructions(lat: float, lon: float, date: str | None, out_dir: Path):
     """Tạo file hướng dẫn cho Google Colab fallback."""
     code_snippet = (
-        f"import s2dr3.inferutils\n"
-        f"s2dr3.inferutils.test(lonlat=({lon}, {lat}), date='{date or 'YYYY-MM-DD'}')"
+        f"import superresolutionv1.inferutils\n"
+        f"superresolutionv1.inferutils.test(lonlat=({lon}, {lat}), date='{date or 'YYYY-MM-DD'}')"
     )
     instructions = {
         "colab_url": "https://colab.research.google.com/",
         "steps": [
             "1. Mở Google Colab → Runtime → Change runtime type → T4 GPU",
-            "2. Cài đặt: !pip -q install https://storage.googleapis.com/0x7ff601307fa5/s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl",
+            "2. Cài đặt: !pip -q install https://storage.googleapis.com/0x7ff601307fa5/superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl",
             "3. Chạy code:",
             code_snippet,
             "4. Download kết quả (*.tif, *.png)",
@@ -602,8 +602,8 @@ def _generate_colab_instructions(lat: float, lon: float, date: str | None, out_d
     help="Chế độ tính toán (ghi đè .env)",
 )
 def main(lat, lon, date, input_dir, output_dir, device):
-    """Chạy S2DR3 super resolution (10m/20m → 1m/px)."""
-    process_with_s2dr3(lat, lon, date, input_dir, output_dir, device)
+    """Chạy SuperResolutionV1 super resolution (10m/20m → 1m/px)."""
+    process_with_superresolutionv1(lat, lon, date, input_dir, output_dir, device)
 
 
 if __name__ == "__main__":

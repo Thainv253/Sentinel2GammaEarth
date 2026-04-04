@@ -1,15 +1,15 @@
-# 🛰️ Sentinel-2 Super Resolution với S2DR3
+# 🛰️ Sentinel-2 Super Resolution với SuperResolutionV1
 
-Nâng cấp độ phân giải ảnh vệ tinh **Sentinel-2** từ 10m/20m/60m lên **1m/px** sử dụng mô hình deep learning **S2DR3** (Sentinel-2 Deep Resolution 3.0) của [Gamma Earth](https://gammaearth.com) / Yosef Akhtman.
+Nâng cấp độ phân giải ảnh vệ tinh **Sentinel-2** từ 10m/20m/60m lên **1m/px** sử dụng mô hình deep learning **SuperResolutionV1** (Sentinel-2 Deep Resolution 3.0) của [Gamma Earth](https://gammaearth.com) / Yosef Akhtman.
 
 ## 📋 Tổng quan
 
 | Thành phần | Mô tả |
 |------------|--------|
 | **Google Earth Engine** | Tìm kiếm & export ảnh Sentinel-2 không bị mây |
-| **S2DR3** | Mô hình deep learning nâng cấp 10 bands (B2-B12) → 1m/px |
+| **SuperResolutionV1** | Mô hình deep learning nâng cấp 10 bands (B2-B12) → 1m/px |
 | **Docker** | Container hóa toàn bộ pipeline (cho PC Windows) |
-| **Google Colab** | Chạy S2DR3 inference (cho Mac / không có GPU NVIDIA) |
+| **Google Colab** | Chạy SuperResolutionV1 inference (cho Mac / không có GPU NVIDIA) |
 
 ## 🏗️ Kiến trúc
 
@@ -17,7 +17,7 @@ Nâng cấp độ phân giải ảnh vệ tinh **Sentinel-2** từ 10m/20m/60m l
 ┌─────────────────────────────────────────────────┐
 │                  run_pipeline.py                 │
 ├──────────┬──────────┬──────────┬─────────────────┤
-│   GEE    │  Export  │  S2DR3   │  Visualization  │
+│   GEE    │  Export  │  SuperResolutionV1   │  Visualization  │
 │  Search  │  Bands   │  Infer   │   & Compare     │
 │ (cloud-  │ (B2-B12) │ (10m→1m) │  (RGB, NDVI)    │
 │  free)   │ GeoTIFF  │          │                 │
@@ -83,8 +83,8 @@ pip install -r requirements.txt
 python scripts/gee_authenticate.py
 ```
 
-> ⚠️ **S2DR3 không chạy trên Mac** (chỉ hỗ trợ linux_x86_64 + NVIDIA GPU).
-> Dùng **Google Colab notebook** kèm theo để chạy S2DR3 inference.
+> ⚠️ **SuperResolutionV1 không chạy trên Mac** (chỉ hỗ trợ linux_x86_64 + NVIDIA GPU).
+> Dùng **Google Colab notebook** kèm theo để chạy SuperResolutionV1 inference.
 
 #### Phương án B: PC Windows với Docker (Khuyến nghị)
 
@@ -200,8 +200,8 @@ docker-run.bat cpu search
 REM Bước 3: Export bands GeoTIFF
 docker-run.bat cpu export
 
-REM Bước 4: S2DR3 super resolution (10m → 1m)
-docker-run.bat cpu s2dr3
+REM Bước 4: SuperResolutionV1 super resolution (10m → 1m)
+docker-run.bat cpu superresolutionv1
 
 REM Bước 5: Visualize kết quả
 docker-run.bat cpu visualize
@@ -212,8 +212,8 @@ docker-run.bat cpu visualize
 REM Chạy toàn bộ pipeline với GPU (nhanh hơn ~10x)
 docker-run.bat gpu
 
-REM Hoặc chỉ bước S2DR3 với GPU
-docker-run.bat gpu s2dr3
+REM Hoặc chỉ bước SuperResolutionV1 với GPU
+docker-run.bat gpu superresolutionv1
 ```
 
 ##### Bước B6: Kiểm tra kết quả
@@ -234,7 +234,7 @@ REM Mở bash shell trong container
 docker-run.bat cpu shell
 
 REM Trong container, có thể chạy lệnh Python trực tiếp:
-python scripts/s2dr3_process.py --device cpu
+python scripts/superresolutionv1_process.py --device cpu
 python config/settings.py
 ```
 
@@ -253,7 +253,7 @@ python config/settings.py
 
 #### Phương án D: WSL2 Native — Không Docker (Khi Docker lỗi AMD64 emulation)
 
-> 💡 **Dùng khi nào?** Docker trên Windows có thể gặp lỗi AMD64 emulation hoặc hiệu năng kém do CPU không hỗ trợ tốt x86_64 emulation. Phương án này chạy S2DR3 **trực tiếp trong Ubuntu WSL2** mà không cần Docker.
+> 💡 **Dùng khi nào?** Docker trên Windows có thể gặp lỗi AMD64 emulation hoặc hiệu năng kém do CPU không hỗ trợ tốt x86_64 emulation. Phương án này chạy SuperResolutionV1 **trực tiếp trong Ubuntu WSL2** mà không cần Docker.
 
 ##### Bước D1: Cài WSL2 + Ubuntu
 
@@ -297,14 +297,14 @@ pip install "numpy>=1.26.0,<2.0"
 # Cài dependencies
 pip install -r requirements.txt
 
-# Cài S2DR3 wheel
-pip install https://storage.googleapis.com/0x7ff601307fa5/s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl
+# Cài SuperResolutionV1 wheel
+pip install https://storage.googleapis.com/0x7ff601307fa5/superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl
 
-# Cài S2DR3 hidden dependencies
+# Cài SuperResolutionV1 hidden dependencies
 pip install scikit-image opencv-python-headless gspread
 
-# Verify S2DR3
-python3 -c "import s2dr3; import skimage; print('✅ OK')"
+# Verify SuperResolutionV1
+python3 -c "import superresolutionv1; import skimage; print('✅ OK')"
 ```
 
 ##### Bước D4: Cấu hình
@@ -357,7 +357,7 @@ python3 run_pipeline.py
 
 #### Phương án C: Google Colab (Miễn phí GPU)
 
-Mở file `notebooks/S2DR3_SuperResolution.ipynb` trên Google Colab. Notebook đã bao gồm toàn bộ pipeline.
+Mở file `notebooks/SuperResolutionV1_SuperResolution.ipynb` trên Google Colab. Notebook đã bao gồm toàn bộ pipeline.
 
 ## 🚀 Cách sử dụng
 
@@ -414,19 +414,19 @@ python scripts/gee_export_bands.py
 
 Tải về các band B2-B12 dưới dạng GeoTIFF.
 
-### Bước 5: Chạy S2DR3 Super Resolution
+### Bước 5: Chạy SuperResolutionV1 Super Resolution
 
 **Docker trên Windows (CPU hoặc GPU):**
 ```batch
 REM CPU mode
-docker-run.bat cpu s2dr3
+docker-run.bat cpu superresolutionv1
 
 REM GPU mode (cần NVIDIA)
-docker-run.bat gpu s2dr3
+docker-run.bat gpu superresolutionv1
 ```
 
 **Trên Mac / không có Docker:**
-Sử dụng Google Colab notebook `notebooks/S2DR3_SuperResolution.ipynb`
+Sử dụng Google Colab notebook `notebooks/SuperResolutionV1_SuperResolution.ipynb`
 
 ### Bước 6: Xem kết quả
 
@@ -442,10 +442,10 @@ Sentinel2GammaEarth/
 │   ├── gee_authenticate.py      # Xác thực Earth Engine
 │   ├── gee_search_imagery.py    # Tìm ảnh cloud-free
 │   ├── gee_export_bands.py      # Export bands GeoTIFF
-│   ├── s2dr3_process.py         # S2DR3 super resolution
+│   ├── superresolutionv1_process.py         # SuperResolutionV1 super resolution
 │   └── visualize_results.py     # So sánh kết quả
 ├── notebooks/
-│   └── S2DR3_SuperResolution.ipynb  # Google Colab notebook
+│   └── SuperResolutionV1_SuperResolution.ipynb  # Google Colab notebook
 ├── config/
 │   └── settings.py              # Cấu hình chung
 ├── data/                        # Ảnh Sentinel-2 gốc (auto-created)
@@ -464,7 +464,7 @@ Sentinel2GammaEarth/
 
 ## 📊 Sentinel-2 Bands
 
-| Band | Tên | Bước sóng (nm) | Độ phân giải gốc | S2DR3 Output |
+| Band | Tên | Bước sóng (nm) | Độ phân giải gốc | SuperResolutionV1 Output |
 |------|-----|-----------------|-------------------|--------------|
 | B1 | Coastal Aerosol | 443 | 60m | ❌ Không xử lý |
 | B2 | Blue | 490 | 10m | ✅ → 1m |
@@ -481,11 +481,11 @@ Sentinel2GammaEarth/
 
 ## 📚 Tài liệu tham khảo
 
-- [S2DR3 — Gamma Earth](https://medium.com/@yosef.akhtman)
+- [SuperResolutionV1 — Gamma Earth](https://medium.com/@yosef.akhtman)
 - [Google Earth Engine Python API](https://developers.google.com/earth-engine/guides/python_install)
 - [Sentinel-2 Bands — ESA](https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-2-msi/resolutions/spatial)
 - [Video hướng dẫn gốc](https://www.youtube.com/watch?v=X077bA4aqco)
 
 ## 📄 License
 
-MIT License — Sử dụng S2DR3 tuân theo điều khoản của Gamma Earth.
+MIT License — Sử dụng SuperResolutionV1 tuân theo điều khoản của Gamma Earth.

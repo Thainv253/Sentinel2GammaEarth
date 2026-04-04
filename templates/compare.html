@@ -249,7 +249,7 @@
          *
          * Mỗi mode (rgb, ndvi, infrared, false_color) có 2 ảnh:
          *   - left: ảnh gốc 10m (từ output/ sau khi render)
-         *   - right: ảnh super-resolution 1m (sau S2DR3, nếu có)
+         *   - right: ảnh super-resolution 1m (sau SuperResolutionV1, nếu có)
          *
          * Nếu chưa có ảnh SR, bên phải sẽ hiển thị ảnh gốc với label khác.
          */
@@ -380,7 +380,7 @@
                 // Chưa có ảnh SR — chỉ hiện ảnh gốc
                 document.getElementById('label-right').textContent = '⏳ Chưa có ảnh SR';
                 document.getElementById('compare-info').textContent =
-                    'Chỉ hiện ảnh gốc 10m. Chạy S2DR3 Super Resolution để có ảnh 1m.';
+                    'Chỉ hiện ảnh gốc 10m. Chạy SuperResolutionV1 Super Resolution để có ảnh 1m.';
             }
 
             // Fit map vào vùng ảnh

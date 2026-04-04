@@ -12,7 +12,7 @@ Các loại visualization:
   - False Color:        B8 (NIR), B4 (Red), B3 (Green)
 
 Tham khảo:
-  - Gamma Earth S2DR3 demo: TCI (RGB), NDVI, IRP layers
+  - Gamma Earth SuperResolutionV1 demo: TCI (RGB), NDVI, IRP layers
   - Sentinel-2 band reference: https://sentinels.copernicus.eu/
 
 Sử dụng:
@@ -438,9 +438,9 @@ def render_sr_visualizations(
     output_dir: str | Path | None = None,
 ) -> list[str]:
     """
-    Render visualization từ S2DR3 super-resolution output (1m/px).
+    Render visualization từ SuperResolutionV1 super-resolution output (1m/px).
 
-    S2DR3 output là file GeoTIFF multi-band (tất cả bands 1m).
+    SuperResolutionV1 output là file GeoTIFF multi-band (tất cả bands 1m).
     Hàm này tìm file SR trong output dir, đọc bands, và render
     cùng 4 loại ảnh như gốc nhưng với prefix "sr_".
 
@@ -450,7 +450,7 @@ def render_sr_visualizations(
       - sr_infrared_irp.png (Infrared 1m)
       - sr_false_color.png  (False Color 1m)
 
-    S2DR3 output band order (10 bands, all at 1m):
+    SuperResolutionV1 output band order (10 bands, all at 1m):
       B2(0), B3(1), B4(2), B5(3), B6(4), B7(5), B8(6), B8A(7), B11(8), B12(9)
 
     Args:
@@ -464,7 +464,7 @@ def render_sr_visualizations(
     out_dir = Path(output_dir) if output_dir else OUTPUT_DIR
 
     # ── Tìm file SR GeoTIFF ──
-    # S2DR3 output thường có tên chứa "sr", "super", "1m" hoặc là file .tif
+    # SuperResolutionV1 output thường có tên chứa "sr", "super", "1m" hoặc là file .tif
     # mới nhất không phải file gốc (sentinel2_*.tif)
     sr_file = None
 
@@ -489,7 +489,7 @@ def render_sr_visualizations(
 
     if not sr_file:
         print("❌ Không tìm thấy file SR GeoTIFF trong output/")
-        print("   S2DR3 chưa tạo output? Kiểm tra lại quá trình inference.")
+        print("   SuperResolutionV1 chưa tạo output? Kiểm tra lại quá trình inference.")
         return []
 
     print(f"\n📊 Render SR visualizations (1m/px)...")
@@ -504,7 +504,7 @@ def render_sr_visualizations(
     rendered = []
 
     # ── Band mapping cho SR output ──
-    # S2DR3 outputs 10 bands: B2, B3, B4, B5, B6, B7, B8, B8A, B11, B12
+    # SuperResolutionV1 outputs 10 bands: B2, B3, B4, B5, B6, B7, B8, B8A, B11, B12
     # Index 0-based: B2=0, B3=1, B4=2, B5=3, B6=4, B7=5, B8=6, B8A=7, B11=8, B12=9
     SR_BAND = {"B2": 0, "B3": 1, "B4": 2, "B5": 3, "B6": 4,
                "B7": 5, "B8": 6, "B8A": 7, "B11": 8, "B12": 9}

@@ -6,7 +6,7 @@ Chạy toàn bộ pipeline end-to-end:
   1. Xác thực Google Earth Engine
   2. Tìm ảnh Sentinel-2 cloud-free
   3. Export bands B2-B12 GeoTIFF
-  4. Chạy S2DR3 super resolution (nếu có GPU)
+  4. Chạy SuperResolutionV1 super resolution (nếu có GPU)
   5. Visualize kết quả
 
 Sử dụng:
@@ -24,12 +24,12 @@ from config.settings import print_config
 @click.command()
 @click.option(
     "--step",
-    type=click.Choice(["all", "auth", "search", "export", "s2dr3", "visualize"]),
+    type=click.Choice(["all", "auth", "search", "export", "superresolutionv1", "visualize"]),
     default="all",
     help="Chạy bước cụ thể hoặc tất cả",
 )
 @click.option("--image-id", type=str, help="ID ảnh Sentinel-2 (cho bước export)")
-@click.option("--date", type=str, help="Ngày chụp (cho S2DR3 online mode)")
+@click.option("--date", type=str, help="Ngày chụp (cho SuperResolutionV1 online mode)")
 @click.option("--lat", type=float, help="Vĩ độ")
 @click.option("--lon", type=float, help="Kinh độ")
 def main(step: str, image_id: str | None, date: str | None, lat: float | None, lon: float | None):
@@ -41,7 +41,7 @@ def main(step: str, image_id: str | None, date: str | None, lat: float | None, l
     print()
     print("╔" + "═" * 58 + "╗")
     print("║   🛰️  Sentinel-2 Super Resolution Pipeline                ║")
-    print("║   Powered by S2DR3 (Gamma Earth / Yosef Akhtman)         ║")
+    print("║   Powered by SuperResolutionV1 (Gamma Earth / Yosef Akhtman)         ║")
     print("╚" + "═" * 58 + "╝")
     print()
 
@@ -49,11 +49,11 @@ def main(step: str, image_id: str | None, date: str | None, lat: float | None, l
     print()
 
     steps = {
-        "all": ["auth", "search", "export", "s2dr3", "visualize"],
+        "all": ["auth", "search", "export", "superresolutionv1", "visualize"],
         "auth": ["auth"],
         "search": ["auth", "search"],
         "export": ["auth", "export"],
-        "s2dr3": ["s2dr3"],
+        "superresolutionv1": ["superresolutionv1"],
         "visualize": ["visualize"],
     }
 
@@ -105,14 +105,14 @@ def main(step: str, image_id: str | None, date: str | None, lat: float | None, l
             if step == "all":
                 sys.exit(1)
 
-    # ── Step 4: S2DR3 ──
-    if "s2dr3" in to_run:
+    # ── Step 4: SuperResolutionV1 ──
+    if "superresolutionv1" in to_run:
         print("\n" + "━" * 50)
-        print("📌 BƯỚC 4: S2DR3 Super Resolution")
+        print("📌 BƯỚC 4: SuperResolutionV1 Super Resolution")
         print("━" * 50)
 
-        from scripts.s2dr3_process import process_with_s2dr3
-        process_with_s2dr3(lat=lat, lon=lon, date=date)
+        from scripts.superresolutionv1_process import process_with_superresolutionv1
+        process_with_superresolutionv1(lat=lat, lon=lon, date=date)
 
     # ── Step 5: Visualize ──
     if "visualize" in to_run:

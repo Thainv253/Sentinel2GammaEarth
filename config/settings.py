@@ -38,15 +38,15 @@ END_DATE = os.getenv("END_DATE", "2024-06-01")
 CLOUD_THRESHOLD = int(os.getenv("CLOUD_THRESHOLD", "20"))
 
 # ── Sentinel-2 Bands ────────────────────────────────────
-# B1 (Coastal Aerosol, 60m) — không xử lý bởi S2DR3
+# B1 (Coastal Aerosol, 60m) — không xử lý bởi SuperResolutionV1
 # B10 (Cirrus) — không có trong SR dataset
 BANDS_10M = ["B2", "B3", "B4", "B8"]           # Blue, Green, Red, NIR
 BANDS_20M = ["B5", "B6", "B7", "B8A", "B11", "B12"]  # Red Edge, SWIR
 BANDS_60M = ["B9"]                               # Water Vapour
-ALL_BANDS = BANDS_10M + BANDS_20M + BANDS_60M   # 11 bands total cho S2DR3
+ALL_BANDS = BANDS_10M + BANDS_20M + BANDS_60M   # 11 bands total cho SuperResolutionV1
 
-# S2DR3 xử lý 10 bands: B2-B8, B8A, B11, B12 (loại B1, B9, B10)
-S2DR3_BANDS = ["B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12"]
+# SuperResolutionV1 xử lý 10 bands: B2-B8, B8A, B11, B12 (loại B1, B9, B10)
+SuperResolutionV1_BANDS = ["B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12"]
 
 # Band resolution mapping (meters)
 BAND_RESOLUTION = {
@@ -75,14 +75,14 @@ RUNTIME_ENV = os.getenv("RUNTIME_ENV", "local").lower().strip()
 
 # ── Web Server ───────────────────────────────────────────
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
-WEB_PORT = int(os.getenv("WEB_PORT", "5000"))
+WEB_PORT = int(os.getenv("WEB_PORT", "5050"))
 WEB_DEBUG = os.getenv("WEB_DEBUG", "true").lower() == "true"
 
-# ── S2DR3 ────────────────────────────────────────────────
-S2DR3_TARGET_RESOLUTION = 1  # meters per pixel
-S2DR3_WHEEL_URL = (
+# ── SuperResolutionV1 ────────────────────────────────────────────────
+SuperResolutionV1_TARGET_RESOLUTION = 1  # meters per pixel
+SuperResolutionV1_WHEEL_URL = (
     "https://storage.googleapis.com/0x7ff601307fa5/"
-    "s2dr3-20260129.1-cp312-cp312-linux_x86_64.whl"
+    "superresolutionv1-20260129.1-cp312-cp312-linux_x86_64.whl"
 )
 
 
@@ -103,7 +103,7 @@ def print_config():
     print(f"  Device:          {'🔥 GPU (NVIDIA CUDA)' if DEVICE == 'gpu' else '🧊 CPU'}")
     print(f"  Memory limit:    {MEMORY_LIMIT}")
     print(f"  Web server:      http://{WEB_HOST}:{WEB_PORT}")
-    print(f"  Bands (S2DR3):   {', '.join(S2DR3_BANDS)}")
+    print(f"  Bands (SuperResolutionV1):   {', '.join(SuperResolutionV1_BANDS)}")
     print("=" * 50)
 
 

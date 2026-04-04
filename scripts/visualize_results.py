@@ -2,7 +2,7 @@
 """
 Visualization — So sánh kết quả Super Resolution
 ===================================================
-So sánh ảnh Sentinel-2 gốc (10m/20m) với kết quả S2DR3 (1m).
+So sánh ảnh Sentinel-2 gốc (10m/20m) với kết quả SuperResolutionV1 (1m).
 
 Sử dụng:
     python scripts/visualize_results.py
@@ -107,7 +107,7 @@ def visualize_comparison(
 
     Args:
         input_dir: Thư mục chứa ảnh gốc (data/)
-        output_dir: Thư mục chứa ảnh S2DR3 (output/)
+        output_dir: Thư mục chứa ảnh SuperResolutionV1 (output/)
         save_png: Lưu file PNG
     """
     import matplotlib.pyplot as plt
@@ -131,11 +131,11 @@ def visualize_comparison(
     if not has_original and not has_sr:
         print("❌ Không tìm thấy ảnh!")
         print(f"   Gốc:  {in_dir}/sentinel2_10m_bands.tif")
-        print(f"   S2DR3: {out_dir}/*1m*.tif hoặc *sr*.tif")
+        print(f"   SuperResolutionV1: {out_dir}/*1m*.tif hoặc *sr*.tif")
         print()
         print("💡 Chạy các bước trước:")
         print("   1. python scripts/gee_export_bands.py")
-        print("   2. python scripts/s2dr3_process.py")
+        print("   2. python scripts/superresolutionv1_process.py")
         return
 
     figures_dir = out_dir / "figures"
@@ -184,15 +184,15 @@ def visualize_comparison(
 
             plt.show()
 
-    # ── Visualize ảnh S2DR3 ──
+    # ── Visualize ảnh SuperResolutionV1 ──
     if has_sr:
         sr_file = sr_files[0]
-        print(f"\n🚀 Ảnh S2DR3 super resolution (1m):")
+        print(f"\n🚀 Ảnh SuperResolutionV1 super resolution (1m):")
         data_sr, profile_sr = load_geotiff(sr_file)
 
         if data_sr is not None:
             fig2, axes2 = plt.subplots(1, 2, figsize=(14, 6))
-            fig2.suptitle("S2DR3 — Super Resolution (1m/px)", fontsize=14, fontweight="bold")
+            fig2.suptitle("SuperResolutionV1 — Super Resolution (1m/px)", fontsize=14, fontweight="bold")
 
             # RGB
             if data_sr.shape[0] >= 3:
@@ -214,7 +214,7 @@ def visualize_comparison(
             plt.tight_layout()
 
             if save_png:
-                fig_path = figures_dir / "s2dr3_1m_overview.png"
+                fig_path = figures_dir / "superresolutionv1_1m_overview.png"
                 plt.savefig(fig_path, dpi=150, bbox_inches="tight")
                 print(f"\n  ✅ Đã lưu: {fig_path}")
 
@@ -224,7 +224,7 @@ def visualize_comparison(
     if has_original and has_sr and data_orig is not None and data_sr is not None:
         print(f"\n🔍 So sánh trước/sau:")
         fig3, axes3 = plt.subplots(1, 2, figsize=(16, 7))
-        fig3.suptitle("So sánh: Gốc (10m) vs S2DR3 (1m)", fontsize=14, fontweight="bold")
+        fig3.suptitle("So sánh: Gốc (10m) vs SuperResolutionV1 (1m)", fontsize=14, fontweight="bold")
 
         rgb_orig = create_rgb_composite(data_orig)
         axes3[0].imshow(rgb_orig)
@@ -233,7 +233,7 @@ def visualize_comparison(
 
         rgb_sr = create_rgb_composite(data_sr)
         axes3[1].imshow(rgb_sr)
-        axes3[1].set_title(f"S2DR3 — 1m/px\n({data_sr.shape[1]}×{data_sr.shape[2]} px)")
+        axes3[1].set_title(f"SuperResolutionV1 — 1m/px\n({data_sr.shape[1]}×{data_sr.shape[2]} px)")
         axes3[1].axis("off")
 
         plt.tight_layout()
@@ -253,10 +253,10 @@ def visualize_comparison(
 
 @click.command()
 @click.option("--input-dir", type=str, help="Thư mục ảnh gốc (data/)")
-@click.option("--output-dir", type=str, help="Thư mục ảnh S2DR3 (output/)")
+@click.option("--output-dir", type=str, help="Thư mục ảnh SuperResolutionV1 (output/)")
 @click.option("--no-save", is_flag=True, help="Không lưu file PNG")
 def main(input_dir, output_dir, no_save):
-    """So sánh visualization ảnh gốc vs S2DR3 super resolution."""
+    """So sánh visualization ảnh gốc vs SuperResolutionV1 super resolution."""
     visualize_comparison(input_dir, output_dir, save_png=not no_save)
 
 
