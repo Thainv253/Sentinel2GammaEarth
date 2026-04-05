@@ -517,6 +517,13 @@ def process_with_superresolutionv1(
     except ImportError as e:
         # Xử lý lỗi missing module cụ thể
         module_name = str(e).replace("No module named '", "").replace("'", "")
+        
+        # Nếu đó là lỗi do ABI/Version mismatch của thư viện đã cài thay vì thiếu thư viện
+        if "failed to import" in module_name or "_ARRAY_API" in module_name:
+            print(f"\n❌ Lỗi C-Extension ABI hoặc version conflict: {str(e)}")
+            print(f"\n💡 Cách xử lý: Vui lòng rebuild lại Docker với '--no-cache' và đảm bảo numpy<2.0.0 trong requirements.txt")
+            return None
+            
         print(f"\n❌ Lỗi SuperResolutionV1: Thiếu module '{module_name}'")
         print(f"\n💡 Sửa lỗi:")
 

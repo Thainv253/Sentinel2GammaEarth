@@ -8,7 +8,8 @@ rioxarray>=0.17.0
 
 # Scientific computing
 # numpy: dùng system python3-numpy (apt) cho GDAL ABI compatibility
-# Không cài numpy qua pip trong Docker — sẽ override system numpy và crash GDAL
+# Bắt buộc <2.0 để tránh conflicts ABI khi pip upgrade cho các dependencies khác
+numpy<2.0.0
 scipy>=1.12.0
 scikit-image>=0.22.0
 scikit-learn>=1.4.0
