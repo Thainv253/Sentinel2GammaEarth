@@ -251,10 +251,10 @@ def _parse_s3_paths(preview_url: str) -> dict | None:
     cog_base = "https://kgbbmarmdgv53gdb47pls2v2oe0qotcs.lambda-url.eu-central-1.on.aws"
 
     # S3 base path
-    s3_base = f"s3://sentinel-superresolutionv1/{country}/{tile}/{pid}"
+    s3_base = f"s3://sentinel-s2dr3/{country}/{tile}/{pid}"
 
     # S3 HTTPS direct (public bucket)
-    https_base = f"https://sentinel-superresolutionv1.s3.eu-central-1.amazonaws.com/{country}/{tile}/{pid}"
+    https_base = f"https://sentinel-s2dr3.s3.eu-central-1.amazonaws.com/{country}/{tile}/{pid}"
 
     files = {
         # Super Resolution 1m
