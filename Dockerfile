@@ -53,6 +53,10 @@ ENV VIRTUAL_ENV="/app/.venv"
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # ── Force NumPy 1.x TRƯỚC (GDAL system compiled cho NumPy 1.x) ──
+# Tạo file constraint để khoá phiên bản Numpy trên TOÀN BỘ các lệnh pip install tiếp theo
+RUN echo "numpy<2.0.0" > /tmp/constraint.txt
+ENV PIP_CONSTRAINT=/tmp/constraint.txt
+
 # Phải cài đặt TRƯỚC requirements để scikit-image/scipy build đúng ABI
 RUN pip install --no-cache-dir "numpy>=1.26.0,<2.0"
 
@@ -61,7 +65,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ── Cài SuperResolutionV1 hidden dependencies (scikit-image, opencv) ──
-# Cài riêng để đảm bảo không bị numpy ABI mismatch
+# Cài riêng để đảm bảo không bị numpy ABI mismatch (đã có PIP_CONSTRAINT bảo vệ)
 RUN pip install --no-cache-dir \
     scikit-image>=0.22.0 \
     opencv-python-headless \
